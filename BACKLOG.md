@@ -30,9 +30,6 @@ If a different Google account signs in from the expiry overlay, src/auth/AuthCon
 ### 12. Add security headers
 Add public/_headers with a CSP (allowing Google Identity Services), frame-ancestors and nosniff. Also consider inverting the CSRF verb check in worker/csrf.ts to treat everything except GET/HEAD/OPTIONS as mutating.
 
-### 13. Go live on recipes.outbuild.uk
-At first deploy: attach recipes.outbuild.uk (already on your Cloudflare) to the Worker as a custom domain and check the CSRF Origin check passes there. In Google: add `https://recipes.outbuild.uk` as an origin, complete Branding (home page, authorised domain outbuild.uk, likely a privacy policy link), then publish the app so any Google account can sign in (it is in Testing with four test users until then). Then check sign-in in Safari and on an iPhone, which can't be tested on localhost.
-
 ---
 
 ## Blocked / waiting on a decision or something external
@@ -45,8 +42,8 @@ At first deploy: attach recipes.outbuild.uk (already on your Cloudflare) to the 
 
 <!-- Not to-dos. Decisions not to fix something, so reviews and audits don't raise them again. -->
 <!-- One line each: what, and why it's accepted. e.g. "Dialogs don't trap keyboard focus - accepted, low keyboard use (27 Sep 2026)" -->
-- Any Google account can sign in, so anyone with the address can view all recipes and upload files; spam/abuse possible, owner responsible for content - chosen by the user (11 Oct 2026)
-- One abusive user, or several accounts, can fill the shared 5 GB cap and block uploads for everyone until the owner clears content by hand; residual R2 overage is bounded by the caps, not eliminated - accepted (11 Oct 2026)
+- Only the owner's Google test users can sign in (Google app kept in Testing mode); they see Google's "app isn't verified" notice, and every signed-in user can view all recipes - chosen by the user (11 Oct 2026)
+- One test user can fill the shared 5 GB cap and block uploads for everyone until the owner clears content by hand; residual R2 overage is bounded by the caps, not eliminated - accepted (11 Oct 2026)
 - If the Workers or D1 free tier runs out, the app errors until 00:00 UTC (no bill) - accepted (11 Oct 2026)
 - npm audit shows 5 high findings, all dev-only inside @cloudflare/vitest-pool-workers (nested undici/sharp/miniflare); none ship in the Worker; do not run `npm audit fix --force` - accepted pending backlog #8 (11 Oct 2026)
 - HEIC files preview only in Safari; other browsers get a labelled download - accepted (11 Oct 2026)

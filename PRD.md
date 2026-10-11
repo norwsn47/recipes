@@ -6,14 +6,16 @@ A small group (three or four people) want one place to share recipe ideas. Today
 
 ## Users
 - Three or four named people (a household or friends) are the intended audience. Realistic ceiling is about five.
-- Sign-in is with a Google account. **Any Google account may sign in; there is no email allowlist.** This is a deliberate decision by the project owner, made after being warned of the consequences (see "Accepted risks").
+- Sign-in is with a Google account. **Access is limited to the Google accounts the owner has added as test users on the Google OAuth app** (Google Cloud Console, Audience -> Test users, up to 100; currently 4). The Google app stays in Testing mode permanently (owner decision, reversed on 11 October 2026; it replaces the earlier "any Google account may sign in"). There is no email allowlist in the app itself: Google enforces the test-user list.
+- Adding or removing a person is a manual owner step in Google Cloud Console. There is no in-app user management.
+- Users see Google's "app isn't verified" notice at sign-in and click Continue. This is expected and accepted.
 - All signed-in users have equal rights. There is no admin role in the app.
 - Need: add a recipe quickly (on a phone), find something to cook, see who suggested it.
 
 ## Core features
 Priority order.
 
-1. **In-app Google sign-in, open to any Google account, with an app session.**
+1. **In-app Google sign-in, limited to the owner's Google test users, with an app session.**
    - Signed-out visitors see only a sign-in screen (the Google sign-in button and the app name). No recipe data, no file, no list. Following a recipe link while signed out shows the sign-in screen, and after signing in the user lands on that recipe.
    - **Verified once, at sign-in.** The browser sends the Google ID token to the server once. The server verifies it: signature against Google's published keys, issuer, audience (this app's Google client ID), expiry, and that the Google account's email is verified. If any check fails, no session is created and the user is told sign-in failed.
    - **Then the app's own session.** On success the server creates a session row in D1 and sets the app's own session cookie: HttpOnly, Secure, SameSite. The cookie carries an unguessable random session identifier only (no identity data the client could alter).
@@ -51,7 +53,7 @@ Priority order.
    - **HEIC (decided):** HEIC files are stored as uploaded, with no conversion and no new dependency. Safari previews them. Other browsers (Chrome, Firefox, including desktop) cannot, so they get a clearly labelled download (for example "Download HEIC photo (cannot be previewed in this browser)").
 6. **Edit and delete own recipes.** A user can edit or delete only recipes they added. Enforced on the server, not just hidden in the UI. Editing can add or remove files, and change link, notes and category tags, subject to the content rule, the file limits and the usage limits below. Deleting a recipe also deletes its uploaded files. Delete asks for confirmation.
    - Delete order: the recipe record is removed first, then its files. If removing a file from storage fails, the user still sees the recipe deleted, the failure is logged, and the orphaned file is cleaned up by the owner by hand. Orphaned files are never reachable through the app because files are only served via an existing recipe.
-7. **Usage limits (decided by the owner, replacing the earlier no-caps decision).** Reason: this is a small family app with very low expected use, and R2 can bill for overage, so open sign-in needs a ceiling. All limits are enforced on the server.
+7. **Usage limits (decided by the owner, replacing the earlier no-caps decision).** Reason: this is a small family app with very low expected use, and R2 can bill for overage, so a ceiling is kept even though only owner-approved test users can sign in. All limits are enforced on the server.
    - **Global storage cap: 5 GB** of uploaded files across all users. Uploads that would take the total past it are refused.
    - **Per user: 100 MB total uploads and 50 recipes.** Refused beyond either.
    - **Write rate limit: about 20 write requests per minute per user** (create, edit, delete, upload). Exceeding it returns 429 with a message. Exact figure and mechanism are a developer decision, provided it is roughly 20 per minute and does not itself cost many D1 writes.
@@ -62,12 +64,12 @@ Priority order.
 
 ## Sharing and output
 - The product is a shared repository, so the "result" is the persistent list of recipes. Any signed-in user can return to it at any time.
-- Each recipe has a stable URL (for example `/recipes/<id>`) so it can be pasted into a chat. The link only works for signed-in people; because any Google account can sign in, anyone who has the link can view it after signing in.
+- Each recipe has a stable URL (for example `/recipes/<id>`) so it can be pasted into a chat. The link only works for signed-in people; anyone who has the link can view it only if they are one of the owner's Google test users and sign in.
 - Files are served only through an authenticated Worker route, never through public storage URLs.
 - No public (signed-out) sharing, no native share sheet, no generated images, no export in this version.
 
 ## Copy rules (truthfulness)
-- Nothing in the app may describe recipes or uploads as "private", "secure to the group" or "only visible to your group". Accurate wording, wherever visibility is mentioned at all: recipes are visible to anyone who signs in with a Google account.
+- Nothing in the app may describe recipes or uploads as "private", "secure to the group" or "only visible to your group". Accurate wording, wherever visibility is mentioned at all: recipes are visible to every signed-in user.
 - There is deliberately no visibility notice on sign-in or on the add-recipe screen (see "Accepted risks").
 - No note on what is stored about users is shown in the app (project owner's decision).
 - Limit messages must be accurate to the limits actually enforced.
@@ -77,19 +79,21 @@ Recorded here only, not shown in the app: per user, the Google email and display
 
 ## Accepted risks
 Recorded as informed decisions by the project owner, not to be re-raised in reviews:
-- **Open access.** Because any Google account can sign in, anyone with the app's address can view every recipe and upload to storage, within the usage limits. There is a spam and abuse risk, and the project owner is responsible for content hosted by the app.
+- **Limited access, small residual risk.** Only Google accounts the owner has added as test users (up to 100, currently 4) can sign in, so the spam and abuse risk is much smaller than with open sign-in. Every signed-in test user can view every recipe and upload to storage, within the usage limits. The project owner is responsible for content hosted by the app and for who is on the test-user list.
+- **Google "app isn't verified" notice.** Users see it at every sign-in and must click Continue. Accepted; no Google publishing, Branding page, privacy policy or home page is pursued.
 - **Free-tier exhaustion hard-stops, with no bill.** Workers Free and D1 Free stop rather than charge when their daily allowances run out: requests or queries fail with errors until the daily reset at 00:00 UTC. This is accepted: the app may be unavailable for the rest of a day if the allowance is used up.
-- **Residual R2 overage.** The caps (5 GB global, 100 MB per user, rate limit) bound but do not eliminate R2 cost: R2 bills beyond its free allowance with no hard stop. The owner sets a Cloudflare billing/usage alert manually (not an app feature). Several accounts could still each reach their per-user share up to the global cap; the global cap is the backstop.
+- **Residual R2 overage.** The caps (5 GB global, 100 MB per user, rate limit) bound but do not eliminate R2 cost: R2 bills beyond its free allowance with no hard stop. The owner sets a Cloudflare billing/usage alert manually (not an app feature). Several test users could still each reach their per-user share up to the global cap; the global cap is the backstop.
 - **Moderation is manual.** The owner removes content directly in the D1 and R2 dashboards. There is no in-app admin and no report button. Other users cannot remove others' content.
 - **Leavers and abusers.** Content stays when someone leaves or misbehaves. The owner deletes it by hand on request. Nothing is deleted automatically when a Google account disappears.
 - **No data self-service.** Users cannot delete their account data themselves; deletion is manual on request to the owner.
-- **No visibility notice.** The app does not tell users that their recipes and files are visible to every signed-in Google user. Users may therefore upload content without realising how widely it is visible.
-- **One user can use up their own and, at worst, the shared quota.** A single abusive account can fill the global 5 GB cap (via 100 MB each across many accounts) and block uploads for everyone until the owner clears content by hand.
+- **No visibility notice.** The app does not tell users that their recipes and files are visible to every signed-in user. Users may therefore upload content without realising how widely it is visible. The app never calls recipes "private" (see "Copy rules").
+- **Shared quota.** Test users can between them fill the global 5 GB cap (100 MB each) and block uploads for everyone until the owner clears content by hand. With a handful of owner-approved users this is unlikely.
 - **HEIC is not previewable outside Safari.** Other browsers get a labelled download.
 
 ## Out of scope
 - Admin role, roles or permissions beyond owner-only edit/delete.
-- Email allowlist, invitations, or in-app user management (access is open to any Google account).
+- In-app email allowlist, invitations, or in-app user management (access is limited by the Google test-user list, managed manually by the owner in Google Cloud Console).
+- Publishing the Google OAuth app, the Google Branding page, a privacy policy or a home page (the app stays in Testing mode permanently).
 - In-app moderation: admin screens, report button, content flagging.
 - Usage dashboards or a storage meter in the app (the caps themselves are in scope, see Core features item 7).
 - Self-service account or data deletion, data export.
@@ -155,7 +159,7 @@ Each is testable by hand or by an automated test.
 - **Approved dependency set (owner decision, 11 October 2026):** react, react-dom (18), react-router-dom, jose, vite, @vitejs/plugin-react, tailwindcss, @tailwindcss/vite, @cloudflare/vite-plugin, vitest, @cloudflare/vitest-pool-workers, eslint, @eslint/js, eslint-plugin-react-hooks, globals, typescript, typescript-eslint, @types/react, @types/react-dom, wrangler. Nothing else is installed without asking.
 - **Fonts:** the Google Fonts import is kept (owner decision). Consequence: visitors' IP addresses go to Google when fonts load.
 - **Source control:** GitHub (stated intention); hosting on Cloudflare.
-- Cloudflare Access is dropped. Reason: with open sign-in each person who authenticates consumes an Access seat until removed, and once the seat cap is reached new people are blocked, so strangers could lock out the real group.
+- Cloudflare Access is dropped. Reason: Access seats are consumed by each person who authenticates, which is an unnecessary layer now that Google's test-user list already limits who can sign in.
 
 **Why this stack:** it matches the design system (React and Tailwind v4); there is no SEO or server-rendering need because every page is behind sign-in; it is one deployable; and all three services have free tiers suited to a group of this size.
 
@@ -206,8 +210,9 @@ Standing rules:
 - Branding: no logo and no images. The app launches with its name as plain text (on the sign-in screen and in the header). The app is called "Family Recipes" (owner decision, 11 October 2026), shown as plain text.
 - Cost: free tier is the intent; see "Tech stack & tools" for verified limits and the unverified points.
 - Security: every API request is authenticated server-side by validating the app session. Uploaded files are only served to signed-in users. Mutating requests are CSRF-protected.
-- Production URL: https://recipes.outbuild.uk (domain already on the owner's Cloudflare account). It must be added as an authorised JavaScript origin on the Google OAuth client.
-- Google app status: stays in Testing mode with 4 test users until go-live (backlog #13). Until it is published, only those test users can sign in, so the "any Google account" rule (Users section) takes effect only at go-live. Publishing is a manual owner step before launch.
+- Production URL: https://recipes.outbuild.uk (domain on the owner's Cloudflare account). It must be an authorised JavaScript origin on the Google OAuth client.
+- Google app status: Testing mode permanently (owner decision, 11 October 2026). Only test users added by the owner in Google Cloud Console (Audience -> Test users, up to 100; currently 4) can sign in. Adding or removing a person is a manual owner step. Users see Google's "app isn't verified" notice and click Continue. No publishing, Branding page, privacy policy or home page is needed.
+- Deployment (live): https://recipes.outbuild.uk, deployed as Cloudflare Worker "recipes" via GitHub (Workers Builds, main branch). Sign-in was confirmed working on the owner's phone.
 - Local testing: Chrome and Firefox on http://localhost are supported. Safari on http://localhost is not supported (the Secure cookie is not accepted there); Safari is covered on the deployed HTTPS site.
 - Manual owner step: set a Cloudflare billing/usage alert before launch.
 - Single-developer project, small data volume.
