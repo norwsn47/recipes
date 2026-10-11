@@ -1,0 +1,6 @@
+# Copy to .dev.vars for local Worker development (gitignored). Names only here.
+GOOGLE_CLIENT_ID=
+MAX_TOTAL_STORAGE_BYTES=
+MAX_USER_STORAGE_BYTES=
+MAX_USER_RECIPES=
+WRITE_RATE_PER_MINUTE=

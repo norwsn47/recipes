@@ -1,4 +1,4 @@
-# PRD - Recipes
+# PRD - Family Recipes
 Last updated: 11 October 2026
 
 ## Problem
@@ -143,7 +143,9 @@ Each is testable by hand or by an automated test.
 - **Backend and hosting:** one Cloudflare Worker that serves the SPA as static assets and handles `/api/*`. One deployable.
 - **Data:** D1 for recipes, users and sessions. R2 for uploaded files, reachable only through an authenticated Worker route (no public bucket URL).
 - **Sign-in:** in-app Google sign-in (Google as identity provider). The server verifies the Google ID token once at sign-in, then issues the app's own session cookie backed by a sessions table in D1. No client secret is used (ID-token flow).
-- **Tooling:** `wrangler` is approved as a project dev dependency, installed via npm at scaffold (wrangler only; nothing else without asking).
+- **Language:** TypeScript.
+- **Approved dependency set (owner decision, 11 October 2026):** react, react-dom (18), react-router-dom, jose, vite, @vitejs/plugin-react, tailwindcss, @tailwindcss/vite, @cloudflare/vite-plugin, vitest, @cloudflare/vitest-pool-workers, eslint, @eslint/js, eslint-plugin-react-hooks, globals, typescript, @types/react, @types/react-dom, wrangler. Nothing else is installed without asking.
+- **Fonts:** the Google Fonts import is kept (owner decision). Consequence: visitors' IP addresses go to Google when fonts load.
 - **Source control:** GitHub (stated intention); hosting on Cloudflare.
 - Cloudflare Access is dropped. Reason: with open sign-in each person who authenticates consumes an Access seat until removed, and once the seat cap is reached new people are blocked, so strangers could lock out the real group.
 
@@ -193,17 +195,14 @@ Standing rules:
 ## Constraints
 - Layout: Mobile-first, confirmed (phone is the main device; desktop must still work). The project-manager records this on the `Layout:` line in `CLAUDE.md`.
 - Design: the Outbuild design system in `design-system/` is accepted as is. The design review gate passed on 11 October 2026.
-- Branding: no logo and no images. The app launches with its name as plain text (on the sign-in screen and in the header). The name itself is undecided (Q-N1).
+- Branding: no logo and no images. The app launches with its name as plain text (on the sign-in screen and in the header). The app is called "Family Recipes" (owner decision, 11 October 2026), shown as plain text.
 - Cost: free tier is the intent; see "Tech stack & tools" for verified limits and the unverified points.
 - Security: every API request is authenticated server-side by validating the app session. Uploaded files are only served to signed-in users. Mutating requests are CSRF-protected.
 - Manual owner step: set a Cloudflare billing/usage alert before launch.
 - Single-developer project, small data volume.
 
 ## Open Questions
-Unanswered; none are assumed. Q5a (HEIC), Q18 (cost) and Q-S1 (session lifetime, 30 days sliding) are closed: HEIC is stored as is with a download fallback outside Safari; cost is handled by the usage caps, free-tier hard-stops being accepted, and the owner's billing alert.
-
-**Product**
-- Q-N1. What is the app called? Lean: "Recipes". Shown as plain text only (no logo). Needs owner confirmation before the sign-in screen and header are built.
+Unanswered; none are assumed. Q5a (HEIC), Q18 (cost), Q-S1 (session lifetime, 30 days sliding) and Q-N1 (app name: "Family Recipes") are closed: HEIC is stored as is with a download fallback outside Safari; cost is handled by the usage caps, free-tier hard-stops being accepted, and the owner's billing alert.
 
 **Cloudflare cost**
 - Q-C1. Does R2 require a payment method on a free account? Unverified. Lean: assume a card is needed and tell the owner before they start; check at account setup.

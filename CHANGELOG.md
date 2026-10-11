@@ -5,6 +5,10 @@ Last updated: 11 October 2026
 
 ---
 
+## 11 October 2026 - Design system imported through a typed alias
+- Components are imported as `@design-system/components` (Vite alias to the real components, TypeScript paths to design-system/types), because relative imports of the .jsx files are untyped and make className required. The design-system folder is still used in place and unmodified.
+- Tests run against compatibility date 2026-08-22 (the test pool's workerd limit); wrangler.jsonc keeps 2026-10-11. vitest is pinned to ^4.1 to match the pool.
+
 ## 11 October 2026 - Stack locked; usage limits reinstated; own session cookie
 - Stack: React 18, Vite and Tailwind v4 single-page app on one Cloudflare Worker (static assets plus /api/*), with D1 and R2. wrangler approved as a dev dependency (wrangler only).
 - Reversal: the earlier "no caps or rate limiting" decision is replaced. Limits now: 5 GB global storage, 100 MB and 50 recipes per user, about 20 writes per minute per user, plus the existing file and recipe limits. Reason: small family app, very low expected use, and R2 can bill overage.

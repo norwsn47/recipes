@@ -1,0 +1,32 @@
+// Family Recipes: one Worker serving the SPA (static assets) and /api/*.
+// No secrets here. Non-secret config only.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "family-recipes",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-11",
+  "assets": {
+    "directory": "./dist/client",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "observability": { "enabled": true },
+
+  // Usage limits (non-secret). The Worker has in-code defaults if a value is missing,
+  // so these are left unset until the owner wants to override them:
+  // "vars": {
+  //   "GOOGLE_CLIENT_ID": "<set by owner, not a secret>",
+  //   "MAX_TOTAL_STORAGE_BYTES": "5368709120",
+  //   "MAX_USER_STORAGE_BYTES": "104857600",
+  //   "MAX_USER_RECIPES": "50",
+  //   "WRITE_RATE_PER_MINUTE": "20"
+  // },
+
+  // OWNER STEPS (not done, nothing created in the cloud):
+  // 1. D1: run `npx wrangler d1 create family-recipes-db`, then add the returned id here:
+  //    "d1_databases": [{ "binding": "DB", "database_name": "family-recipes-db", "database_id": "<from create>" }],
+  //    (not declared yet: database_id is required and must not be invented. Added at the schema step.)
+  // 2. R2: create the bucket (needs R2 enabled on the account), then uncomment:
+  //    "r2_buckets": [{ "binding": "FILES", "bucket_name": "family-recipes-files" }]
+  //    (no public bucket URL; files are served only through an authenticated Worker route.)
+}
