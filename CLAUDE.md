@@ -1,5 +1,5 @@
 # CLAUDE.md
-Last updated: 27 September 2026
+Last updated: 11 October 2026
 > Ground rules for this project. Read this at the start of every session.
 > Whenever you edit this file, update the "Last updated:" date above to today's date before saving.
 
@@ -199,8 +199,9 @@ These apply to all output, from the main session and from every agent. Agent fil
 
 ## Project-specific rules
 <!-- Set during onboarding. Keep each line short. -->
-Phase: <!-- unset until onboarding starts; then build; iteration after /graduate -->
-Layout: <!-- Mobile only | Mobile-first | Desktop-first | Responsive (set at step 2.4) -->
+Phase: build
+Version control: Mode C (Git + GitHub). Repo created by the user; no remote added yet. Branch `chore/onboarding` in use.
+Layout: Mobile-first
 <!-- Add any rules specific to this project below this line -->
 
 <!-- VERSION CONTROL MODE - set this during setup -->
