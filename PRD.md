@@ -23,6 +23,14 @@ Priority order.
    - **CSRF protection is required** on every mutating request (create, edit, delete, upload, sign-in, sign-out). The cookie being SameSite is not by itself enough. The mechanism (for example an Origin/Host check plus a custom-header or token requirement) is a developer decision, recorded in the code and reviewed by the code-reviewer. A cross-site request carrying the cookie must not change anything.
    - A user is identified by the Google account's stable subject ID (`sub`), not by email. Email and display name are stored for display and refreshed from the verified token on each sign-in, so a changed email or name on the Google account does not orphan or lose the user's recipes. Identity (id, email, name) always comes from the server-side session and verified token, never from client input.
    - **Session expiry mid-use.** If the session has expired (or was removed) while the user is using the app, the app re-prompts sign-in without showing a 401 error page. If this happens during adding or editing a recipe, the typed title, notes, link and chosen tags are kept (files may need re-selecting) and the save can be retried after signing in.
+   - **Decisions recorded 11 October 2026 (after the localhost review):**
+     - The sign-in screen shows only the app name and the Google button (outline theme, 280px wide).
+     - No return path is stored. Sign-in renders at the same URL, so a recipe link shows the sign-in screen and the recipe appears once signed in.
+     - If the app cannot check whether the user is signed in (network or server failure), it shows a "could not check sign-in" state with a retry button, not the sign-in screen or an error page.
+     - Any unknown path (not a recipe id) renders the home list. A recipe id that does not exist still shows "not found".
+     - The session cookie is SameSite=Strict. Only a hash of the session token is stored in D1; the raw token exists only in the cookie.
+     - CSRF mechanism: the request Origin must equal the app's own origin and mutating requests must carry `X-Requested-With: fetch`. Both must pass.
+     - Known issue, deferred (backlog #11): signing in as a different Google account at the session-expiry overlay is not handled correctly. Accepted for now.
    - Cloudflare Access is not used (see "Tech stack & tools").
    - **Auth build is gated:** no authentication code is built without explicit confirmation from the project owner.
 2. **Add a recipe.** Any signed-in user can add a recipe with:
@@ -65,7 +73,7 @@ Priority order.
 - Limit messages must be accurate to the limits actually enforced.
 
 ## Data stored
-Recorded here only, not shown in the app: per user, the Google email and display name (plus the stable `sub` ID); per session, a random identifier, the user and its expiry; per recipe, its fields, uploaded files and added date.
+Recorded here only, not shown in the app: per user, the Google email and display name (plus the stable `sub` ID); per session, a hash of the random session token (the raw token lives only in the browser cookie), the user and its expiry; per recipe, its fields, uploaded files and added date.
 
 ## Accepted risks
 Recorded as informed decisions by the project owner, not to be re-raised in reviews:
@@ -198,6 +206,9 @@ Standing rules:
 - Branding: no logo and no images. The app launches with its name as plain text (on the sign-in screen and in the header). The app is called "Family Recipes" (owner decision, 11 October 2026), shown as plain text.
 - Cost: free tier is the intent; see "Tech stack & tools" for verified limits and the unverified points.
 - Security: every API request is authenticated server-side by validating the app session. Uploaded files are only served to signed-in users. Mutating requests are CSRF-protected.
+- Production URL: https://recipes.outbuild.uk (domain already on the owner's Cloudflare account). It must be added as an authorised JavaScript origin on the Google OAuth client.
+- Google app status: stays in Testing mode with 4 test users until go-live (backlog #13). Until it is published, only those test users can sign in, so the "any Google account" rule (Users section) takes effect only at go-live. Publishing is a manual owner step before launch.
+- Local testing: Chrome and Firefox on http://localhost are supported. Safari on http://localhost is not supported (the Secure cookie is not accepted there); Safari is covered on the deployed HTTPS site.
 - Manual owner step: set a Cloudflare billing/usage alert before launch.
 - Single-developer project, small data volume.
 

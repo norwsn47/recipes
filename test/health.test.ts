@@ -8,13 +8,16 @@ describe('worker /api routes', () => {
     expect(await res.json()).toEqual({ ok: true })
   })
 
-  it('POST /api/health returns 405', async () => {
-    const res = await exports.default.fetch('http://example.com/api/health', { method: 'POST' })
+  it('POST /api/health returns 405 even without CSRF headers being valid', async () => {
+    const res = await exports.default.fetch('http://example.com/api/health', {
+      method: 'POST',
+      headers: { origin: 'http://example.com', 'x-requested-with': 'fetch' },
+    })
     expect(res.status).toBe(405)
   })
 
-  it('unknown /api path returns a JSON 404', async () => {
-    const res = await exports.default.fetch('http://example.com/api/nope')
+  it('non-API path returns a JSON 404', async () => {
+    const res = await exports.default.fetch('http://example.com/nope')
     expect(res.status).toBe(404)
     expect(res.headers.get('content-type')).toContain('application/json')
     expect(await res.json()).toEqual({ error: { code: 'not_found', message: 'Not found' } })
