@@ -5,6 +5,10 @@ Last updated: 11 October 2026
 
 ---
 
+## 11 October 2026 - Sign-in limited to Google test users; app live
+- Reversal (owner decision): the Google app stays in Testing mode permanently, so only test users the owner adds in Google Cloud Console can sign in. This replaces "any Google account may sign in". No Google publishing, Branding page or privacy policy needed.
+- Live at https://recipes.outbuild.uk as Cloudflare Worker "recipes", deployed from GitHub main by Workers Builds. D1 database family-recipes-db created (WEUR).
+
 ## 11 October 2026 - TypeScript 6.0 with typescript-eslint
 - TypeScript moved from 7.0 to 6.0 (owner decision) so typescript-eslint can be added; it supports TypeScript below 6.1 only. Lint now covers .ts/.tsx files.
 
