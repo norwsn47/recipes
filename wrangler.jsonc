@@ -13,24 +13,22 @@
   "observability": { "enabled": true },
 
   // Non-secret config. GOOGLE_CLIENT_ID is the ID token audience; the Worker fails closed
-  // (every sign-in refused) while it is empty. Owner sets the real value (not a secret).
+  // (every sign-in refused) while it is empty. Not a secret: it is also in the browser bundle.
   // The usage-limit vars below have in-code defaults, so they stay unset until needed.
   "vars": {
-    "GOOGLE_CLIENT_ID": ""
+    "GOOGLE_CLIENT_ID": "902211231954-phqg0e9vin17mb7ippb1niegclf8g812.apps.googleusercontent.com"
     // "MAX_TOTAL_STORAGE_BYTES": "5368709120",
     // "MAX_USER_STORAGE_BYTES": "104857600",
     // "MAX_USER_RECIPES": "50",
     // "WRITE_RATE_PER_MINUTE": "20"
   },
 
-  // OWNER STEP: run `npx wrangler d1 create family-recipes-db` and replace the placeholder
-  // database_id below with the returned id. The placeholder is not a real id (deploy will fail
-  // until it is replaced); local development and tests do not need a real one.
+  // D1 database created 11 October 2026 (region WEUR). The id is not a secret.
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "family-recipes-db",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "e6303e93-052e-48f7-93b0-2fe30515abb3",
       "migrations_dir": "migrations"
     }
   ]
