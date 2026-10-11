@@ -12,21 +12,30 @@
   },
   "observability": { "enabled": true },
 
-  // Usage limits (non-secret). The Worker has in-code defaults if a value is missing,
-  // so these are left unset until the owner wants to override them:
-  // "vars": {
-  //   "GOOGLE_CLIENT_ID": "<set by owner, not a secret>",
-  //   "MAX_TOTAL_STORAGE_BYTES": "5368709120",
-  //   "MAX_USER_STORAGE_BYTES": "104857600",
-  //   "MAX_USER_RECIPES": "50",
-  //   "WRITE_RATE_PER_MINUTE": "20"
-  // },
+  // Non-secret config. GOOGLE_CLIENT_ID is the ID token audience; the Worker fails closed
+  // (every sign-in refused) while it is empty. Owner sets the real value (not a secret).
+  // The usage-limit vars below have in-code defaults, so they stay unset until needed.
+  "vars": {
+    "GOOGLE_CLIENT_ID": ""
+    // "MAX_TOTAL_STORAGE_BYTES": "5368709120",
+    // "MAX_USER_STORAGE_BYTES": "104857600",
+    // "MAX_USER_RECIPES": "50",
+    // "WRITE_RATE_PER_MINUTE": "20"
+  },
 
-  // OWNER STEPS (not done, nothing created in the cloud):
-  // 1. D1: run `npx wrangler d1 create family-recipes-db`, then add the returned id here:
-  //    "d1_databases": [{ "binding": "DB", "database_name": "family-recipes-db", "database_id": "<from create>" }],
-  //    (not declared yet: database_id is required and must not be invented. Added at the schema step.)
-  // 2. R2: create the bucket (needs R2 enabled on the account), then uncomment:
-  //    "r2_buckets": [{ "binding": "FILES", "bucket_name": "family-recipes-files" }]
-  //    (no public bucket URL; files are served only through an authenticated Worker route.)
+  // OWNER STEP: run `npx wrangler d1 create family-recipes-db` and replace the placeholder
+  // database_id below with the returned id. The placeholder is not a real id (deploy will fail
+  // until it is replaced); local development and tests do not need a real one.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "family-recipes-db",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ]
+
+  // OWNER STEP (later): R2 bucket, then uncomment:
+  // "r2_buckets": [{ "binding": "FILES", "bucket_name": "family-recipes-files" }]
+  // (no public bucket URL; files are served only through an authenticated Worker route.)
 }

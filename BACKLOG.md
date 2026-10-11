@@ -6,20 +6,11 @@ Last updated: 11 October 2026
 > - **Adding:** only something you would actually do - a real bug, a feature idea you asked for, or a manual step you owe. You ask; the project-manager adds genuine follow-ups from a large change; Critical/High review and audit findings are added. Lower findings stay in the chat report until you triage them. Non-blocking review notes are never logged.
 > - **Accepted or won't-fix:** never a to-do. One line in "Known and accepted" below, or a code comment where the issue sits in one place. Reviews and audits read that section and do not re-raise it.
 > - **Entries are one to three lines:** what needs doing, not the history. Nothing here is actioned without explicit instruction.
-> - **IDs are stable and never reused**, even after an item is deleted, so gaps are expected. Next free ID: **#10**.
+> - **IDs are stable and never reused**, even after an item is deleted, so gaps are expected. Next free ID: **#14**.
 
 ---
 
 ## To do
-
-### 1. Create the Google OAuth client
-Manual step for you: create a web OAuth client in Google Cloud (free) for in-app sign-in. Client ID and secret go only in Cloudflare secrets / local env, never the repo. Needed before the auth build.
-
-### 2. Create the Cloudflare account
-Manual step for you: set up the Cloudflare account (Workers, D1, R2). Zero Trust / Access is no longer needed.
-
-### 3. Add the GitHub repo URL as the remote
-Manual step: give the main session the repo URL once created, so it can add the remote.
 
 ### 5. Check two unverified Cloudflare points
 At R2 setup, note whether a payment method is required. After launch, check in the dashboard whether static asset requests count toward the 100,000 requests/day Workers limit.
@@ -30,8 +21,20 @@ Manual step for you, before launch: R2 can bill beyond the free tier, so set a b
 ### 8. Replace the deprecated test pool
 @cloudflare/vitest-pool-workers is renamed @cloudflare/vitest-plugin (warning on every test run). Do after the first feature (owner decision); also re-check the dev-only npm audit findings then.
 
-### 9. Remove the placeholder API banner
-The "API reachable" banner and "Setup complete" card in src/App.tsx are scaffold placeholders; replace with the real home screen (the Outbuild mark stays).
+### 9. Replace the placeholder home screen
+The "API reachable" banner and "Setup complete" card are gone; src/App.tsx now has a minimal placeholder Home and /recipes/:id. Replace with the real recipe list and view (the Outbuild mark stays).
+
+### 10. Create the D1 database and wire it up
+Manual step for you: run `wrangler d1 create family-recipes-db`, paste the real id over the placeholder in wrangler.jsonc, apply `migrations/0001` with `--remote`, and set the real Google client ID in both wrangler vars (GOOGLE_CLIENT_ID) and the build (VITE_GOOGLE_CLIENT_ID); they must match.
+
+### 11. Fix account switch at the session-expiry overlay
+If a different Google account signs in from the expiry overlay, src/auth/AuthContext.tsx:52 drops the user and shows the sign-in screen again. Set the new user and remount the route tree; add a test.
+
+### 12. Add security headers
+Add public/_headers with a CSP (allowing Google Identity Services), frame-ancestors and nosniff. Also consider inverting the CSRF verb check in worker/csrf.ts to treat everything except GET/HEAD/OPTIONS as mutating.
+
+### 13. Go live on recipes.outbuild.uk
+At first deploy: attach recipes.outbuild.uk (already on your Cloudflare) to the Worker as a custom domain and check the CSRF Origin check passes there. In Google: add `https://recipes.outbuild.uk` as an origin, complete Branding (home page, authorised domain outbuild.uk, likely a privacy policy link), then publish the app so any Google account can sign in (it is in Testing with four test users until then). Then check sign-in in Safari and on an iPhone, which can't be tested on localhost.
 
 ---
 
