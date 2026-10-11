@@ -1,0 +1,24 @@
+{
+  "projectId": "d5fac6d7-4309-40aa-aebb-1338a79c6710",
+  "shape": "package",
+  "pkg": "@outbuild/design-system",
+  "globalName": "OutbuildDS",
+  "buildCmd": "npm run build",
+  "cssEntry": "dist/style.css",
+  "overrides": {
+    "Dialog": {
+      "cardMode": "single",
+      "viewport": "480x420"
+    },
+    "Banner": {
+      "cardMode": "column"
+    },
+    "Card": {
+      "cardMode": "column"
+    },
+    "PageHeader": {
+      "cardMode": "column"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}

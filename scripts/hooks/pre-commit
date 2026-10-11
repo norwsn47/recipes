@@ -1,0 +1,29 @@
+#!/bin/sh
+# Blocks a commit when a modified project document or agent file has a
+# "Last updated:" line that is not today's date (CLAUDE.md "Date rule").
+# Newly added files are skipped, so the first commit of a project is not blocked.
+# Install once per clone: git config core.hooksPath scripts/hooks
+# Bypass in an emergency: git commit --no-verify
+
+today=$(date +"%-d %B %Y")
+status=0
+
+for f in $(git diff --cached --name-only --diff-filter=M); do
+  case "$f" in
+    CLAUDE.md|PRD.md|design-system/DESIGN.md|BACKLOG.md|CHANGELOG.md|PLAYBOOK.md|.claude/agents/*.md) ;;
+    *) continue ;;
+  esac
+  line=$(git show ":$f" | grep -m1 -i 'last updated')
+  [ -z "$line" ] && continue
+  case "$line" in
+    *"$today"*) ;;
+    *)
+      echo "pre-commit: $f has a stale 'Last updated' line: $line" >&2
+      echo "            expected today's date: $today" >&2
+      status=1
+      ;;
+  esac
+done
+
+[ "$status" -ne 0 ] && echo "Update the date(s) above and re-stage, or commit with --no-verify." >&2
+exit "$status"
