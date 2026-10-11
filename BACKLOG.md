@@ -27,12 +27,8 @@ At R2 setup, note whether a payment method is required. After launch, check in t
 ### 6. Set a Cloudflare billing/usage alert
 Manual step for you, before launch: R2 can bill beyond the free tier, so set a billing or usage notification in the Cloudflare dashboard.
 
-
-### 7. Decide on TypeScript linting
-Lint currently covers almost nothing: typescript-eslint is not approved, so .ts/.tsx are ignored by ESLint and only `tsc` checks them. Decide whether to approve typescript-eslint before the first feature.
-
 ### 8. Replace the deprecated test pool
-@cloudflare/vitest-pool-workers is renamed @cloudflare/vitest-plugin (warning on every test run). Swapping needs your approval; also re-check the dev-only npm audit findings then.
+@cloudflare/vitest-pool-workers is renamed @cloudflare/vitest-plugin (warning on every test run). Do after the first feature (owner decision); also re-check the dev-only npm audit findings then.
 
 ### 9. Remove the placeholder API banner
 The "API reachable" banner and "Setup complete" card in src/App.tsx are scaffold placeholders; replace with the real home screen (the Outbuild mark stays).

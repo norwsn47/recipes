@@ -143,8 +143,8 @@ Each is testable by hand or by an automated test.
 - **Backend and hosting:** one Cloudflare Worker that serves the SPA as static assets and handles `/api/*`. One deployable.
 - **Data:** D1 for recipes, users and sessions. R2 for uploaded files, reachable only through an authenticated Worker route (no public bucket URL).
 - **Sign-in:** in-app Google sign-in (Google as identity provider). The server verifies the Google ID token once at sign-in, then issues the app's own session cookie backed by a sessions table in D1. No client secret is used (ID-token flow).
-- **Language:** TypeScript.
-- **Approved dependency set (owner decision, 11 October 2026):** react, react-dom (18), react-router-dom, jose, vite, @vitejs/plugin-react, tailwindcss, @tailwindcss/vite, @cloudflare/vite-plugin, vitest, @cloudflare/vitest-pool-workers, eslint, @eslint/js, eslint-plugin-react-hooks, globals, typescript, @types/react, @types/react-dom, wrangler. Nothing else is installed without asking.
+- **Language:** TypeScript 6.0 (held below 6.1 for typescript-eslint).
+- **Approved dependency set (owner decision, 11 October 2026):** react, react-dom (18), react-router-dom, jose, vite, @vitejs/plugin-react, tailwindcss, @tailwindcss/vite, @cloudflare/vite-plugin, vitest, @cloudflare/vitest-pool-workers, eslint, @eslint/js, eslint-plugin-react-hooks, globals, typescript, typescript-eslint, @types/react, @types/react-dom, wrangler. Nothing else is installed without asking.
 - **Fonts:** the Google Fonts import is kept (owner decision). Consequence: visitors' IP addresses go to Google when fonts load.
 - **Source control:** GitHub (stated intention); hosting on Cloudflare.
 - Cloudflare Access is dropped. Reason: with open sign-in each person who authenticates consumes an Access seat until removed, and once the seat cap is reached new people are blocked, so strangers could lock out the real group.

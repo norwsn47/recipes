@@ -5,6 +5,9 @@ Last updated: 11 October 2026
 
 ---
 
+## 11 October 2026 - TypeScript 6.0 with typescript-eslint
+- TypeScript moved from 7.0 to 6.0 (owner decision) so typescript-eslint can be added; it supports TypeScript below 6.1 only. Lint now covers .ts/.tsx files.
+
 ## 11 October 2026 - Design system imported through a typed alias
 - Components are imported as `@design-system/components` (Vite alias to the real components, TypeScript paths to design-system/types), because relative imports of the .jsx files are untyped and make className required. The design-system folder is still used in place and unmodified.
 - Tests run against compatibility date 2026-08-22 (the test pool's workerd limit); wrangler.jsonc keeps 2026-10-11. vitest is pinned to ^4.1 to match the pool.
