@@ -14,5 +14,3 @@ export const json = (body: unknown, status = 200, headers?: HeadersInit): Respon
 /** The one error shape used by every endpoint. */
 export const errorResponse = (status: number, code: string, message: string): Response =>
   json({ error: { code, message } }, status)
-
-export const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])

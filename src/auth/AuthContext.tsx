@@ -49,7 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const me = await signInWithGoogle(credential)
       if (!me) return false
-      setUser((prev) => (prev && prev.id !== me.id ? null : me))
+      // A different account is a new user: AppShell remounts the tree on the user id (see shellKey).
+      setUser(me)
       setStatus('signed-in')
       return true
     } catch {

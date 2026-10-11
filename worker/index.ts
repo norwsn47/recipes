@@ -3,6 +3,7 @@ import { handleGoogleSignIn, handleMe, handleSignOut } from './auth'
 import { checkCsrf } from './csrf'
 import { errorResponse, json } from './http'
 import type { AppEnv } from './http'
+import { withSecurityHeaders } from './security-headers'
 import { sessionCookie, validateSession } from './session'
 import type { SessionUser } from './session'
 
@@ -59,10 +60,10 @@ async function route(request: Request, env: AppEnv): Promise<Response> {
 export default {
   async fetch(request: Request, env: AppEnv): Promise<Response> {
     try {
-      return await route(request, env)
+      return withSecurityHeaders(await route(request, env))
     } catch (err) {
       console.error('Unhandled worker error', err instanceof Error ? err.message : 'unknown')
-      return errorResponse(500, 'internal', 'Something went wrong')
+      return withSecurityHeaders(errorResponse(500, 'internal', 'Something went wrong'))
     }
   },
 }
