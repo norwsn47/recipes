@@ -18,7 +18,7 @@ Priority order.
    - **Verified once, at sign-in.** The browser sends the Google ID token to the server once. The server verifies it: signature against Google's published keys, issuer, audience (this app's Google client ID), expiry, and that the Google account's email is verified. If any check fails, no session is created and the user is told sign-in failed.
    - **Then the app's own session.** On success the server creates a session row in D1 and sets the app's own session cookie: HttpOnly, Secure, SameSite. The cookie carries an unguessable random session identifier only (no identity data the client could alter).
    - **Every API request validates the session** (cookie present, session exists in D1, not expired). A missing, malformed, unknown or expired session gets 401. The server never trusts a request without a valid session. The Google token is not re-checked after sign-in and its expiry no longer matters mid-session.
-   - **Session lifetime (lean, to be confirmed by the owner, see Q-S1):** 30 days, sliding (each use extends it, with the renewal write limited to at most about once a day to save D1 writes). After that the user signs in again.
+   - **Session lifetime (confirmed by the owner, 11 October 2026):** 30 days, sliding (each use extends it, with the renewal write limited to at most about once a day to save D1 writes). After that the user signs in again.
    - **Sign-out** is available from every screen. It deletes the session row on the server, so the cookie stops working immediately, and clears the cookie in the browser.
    - **CSRF protection is required** on every mutating request (create, edit, delete, upload, sign-in, sign-out). The cookie being SameSite is not by itself enough. The mechanism (for example an Origin/Host check plus a custom-header or token requirement) is a developer decision, recorded in the code and reviewed by the code-reviewer. A cross-site request carrying the cookie must not change anything.
    - A user is identified by the Google account's stable subject ID (`sub`), not by email. Email and display name are stored for display and refreshed from the verified token on each sign-in, so a changed email or name on the Google account does not orphan or lose the user's recipes. Identity (id, email, name) always comes from the server-side session and verified token, never from client input.
@@ -95,6 +95,7 @@ Recorded as informed decisions by the project owner, not to be re-raised in revi
 - File types other than PDF, PNG, JPG and HEIC (for example video, WebP, GIF, Word).
 - HEIC conversion to another format (client or server).
 - Native mobile app, offline mode.
+- A logo, brand images or any other imagery for the app itself (v1 uses the app name as plain text; user-uploaded recipe files are unaffected).
 - Anything above the three or four user scale for normal use (pagination, performance tuning for large libraries).
 
 ## Acceptance criteria
@@ -106,7 +107,7 @@ Each is testable by hand or by an automated test.
 - **Cookie attributes:** the session cookie is HttpOnly, Secure and SameSite, and is not readable from page JavaScript. (Secure is checked on the deployed site; localhost may differ.)
 - **Identity:** after a Google account's email or display name changes, signing in again keeps access to that user's existing recipes (matched by `sub`) and shows the updated name.
 - **Sign-out:** after signing out, the app shows the sign-in screen, and an API call that reuses the old cookie returns 401 immediately (the session row is deleted server-side).
-- **Session lifetime:** a session unused for longer than the session lifetime returns 401; use within the lifetime extends it. (Lifetime value pending Q-S1.)
+- **Session lifetime:** a session unused for 30 days returns 401; use within the 30 days extends it (the renewal write happens at most about once a day).
 - **CSRF:** a mutating request sent without the required CSRF protection (for example from a foreign Origin or without the required header/token) is rejected and changes nothing, even though the browser attaches the session cookie.
 - **Add:** with title, time tag and at least one of link/file/notes, the recipe saves and appears at the top of the list with the correct "added by" and date. Without a title, time tag, category tag, or all of link/file/notes, it is rejected with a visible message by both the UI and the server.
 - **Added by:** sending a different "added by" in the request body has no effect; the server uses the session identity.
@@ -190,17 +191,19 @@ Standing rules:
 - Running cost is zero in normal use by the group; worst-case storage is bounded by the 5 GB cap, and the owner has a Cloudflare billing/usage alert in place.
 
 ## Constraints
-- Layout: mobile-first (phone is the main device; desktop must still work). The project-manager records this on the `Layout:` line in `CLAUDE.md`.
+- Layout: Mobile-first, confirmed (phone is the main device; desktop must still work). The project-manager records this on the `Layout:` line in `CLAUDE.md`.
+- Design: the Outbuild design system in `design-system/` is accepted as is. The design review gate passed on 11 October 2026.
+- Branding: no logo and no images. The app launches with its name as plain text (on the sign-in screen and in the header). The name itself is undecided (Q-N1).
 - Cost: free tier is the intent; see "Tech stack & tools" for verified limits and the unverified points.
 - Security: every API request is authenticated server-side by validating the app session. Uploaded files are only served to signed-in users. Mutating requests are CSRF-protected.
 - Manual owner step: set a Cloudflare billing/usage alert before launch.
 - Single-developer project, small data volume.
 
 ## Open Questions
-Unanswered; none are assumed. Q5a (HEIC) and Q18 (cost) are closed: HEIC is stored as is with a download fallback outside Safari; cost is handled by the usage caps, free-tier hard-stops being accepted, and the owner's billing alert.
+Unanswered; none are assumed. Q5a (HEIC), Q18 (cost) and Q-S1 (session lifetime, 30 days sliding) are closed: HEIC is stored as is with a download fallback outside Safari; cost is handled by the usage caps, free-tier hard-stops being accepted, and the owner's billing alert.
 
-**Sessions**
-- Q-S1. Session lifetime. Lean: 30 days, sliding, renewal written at most about once a day. Alternative: a fixed 7 or 14 days for less exposure if a phone is lost. Needs owner confirmation before the auth build.
+**Product**
+- Q-N1. What is the app called? Lean: "Recipes". Shown as plain text only (no logo). Needs owner confirmation before the sign-in screen and header are built.
 
 **Cloudflare cost**
 - Q-C1. Does R2 require a payment method on a free account? Unverified. Lean: assume a card is needed and tell the owner before they start; check at account setup.

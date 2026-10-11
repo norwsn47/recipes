@@ -27,8 +27,6 @@ At R2 setup, note whether a payment method is required. After launch, check in t
 ### 6. Set a Cloudflare billing/usage alert
 Manual step for you, before launch: R2 can bill beyond the free tier, so set a billing or usage notification in the Cloudflare dashboard.
 
-### 7. Confirm the session lifetime
-Before the auth build: confirm the session lifetime (PRD lean: 30 days sliding; alternative a fixed 7 or 14 days). Auth build also needs your explicit go-ahead.
 
 ---
 
