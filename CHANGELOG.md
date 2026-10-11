@@ -1,9 +1,18 @@
 # CHANGELOG.md
-Last updated: 27 September 2026
+Last updated: 11 October 2026
 > A record of decisions, reversals and notable behaviour changes, newest first. Git history is the full record of everything else, so most changes need no entry here.
 > Whenever you add an entry, update the "Last updated:" date above.
 
 ---
+
+## 11 October 2026 - In-app Google sign-in replaces Cloudflare Access
+- Decided by the user: the server verifies the Google ID token itself. Cloudflare Access is dropped.
+- Why: with open sign-in, Access seats (assumed free cap of 50, unverified) could be filled by strangers and lock out the real group. Still auth work: no auth build without explicit user confirmation.
+- Also decided: no caps or rate limiting, manual moderation by the owner, no visibility notice (recorded as accepted risks in BACKLOG and PRD).
+
+## 11 October 2026 - Open Google sign-in (no email allowlist)
+- Decided by the user: any Google account may sign in, after being warned that anyone with the link can view all recipes and upload files, of spam/abuse risk, and that they are responsible for hosted content. Edit and delete own recipes only still applies.
+- Reverses the earlier Cloudflare Access plus email allowlist approach. The Access approval was conditional on Google SSO and an allowlist; with open sign-in the seat cap makes Access a poor fit. Sign-in layer is reopened (see PRD open questions).
 
 <!-- Format:
 ## [date] - [decision or change]
