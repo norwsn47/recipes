@@ -24,9 +24,6 @@ Manual step for you, before launch: R2 can bill beyond the free tier, so set a b
 ### 9. Replace the placeholder home screen
 The "API reachable" banner and "Setup complete" card are gone; src/App.tsx now has a minimal placeholder Home and /recipes/:id. Replace with the real recipe list and view (the Outbuild mark stays).
 
-### 10. Create the D1 database and wire it up
-Manual step for you: run `wrangler d1 create family-recipes-db`, paste the real id over the placeholder in wrangler.jsonc, apply `migrations/0001` with `--remote`, and set the real Google client ID in both wrangler vars (GOOGLE_CLIENT_ID) and the build (VITE_GOOGLE_CLIENT_ID); they must match.
-
 ### 11. Fix account switch at the session-expiry overlay
 If a different Google account signs in from the expiry overlay, src/auth/AuthContext.tsx:52 drops the user and shows the sign-in screen again. Set the new user and remount the route tree; add a test.
 
