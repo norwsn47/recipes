@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import { ApiError, deleteRecipe, formatDate, getRecipe } from '../lib/recipes'
 import type { RecipeDetail } from '../lib/recipes'
 import { BackLink } from './BackLink'
+import { RecipeFiles } from './RecipeFiles'
 
 type Result = { key: string; recipe: RecipeDetail } | { key: string; error: 'not-found' | 'failed' }
 
@@ -105,7 +106,7 @@ export function RecipeView() {
         </div>
       )}
 
-      {/* Stage B: uploaded files are listed and previewed here. */}
+      <RecipeFiles files={r.files} />
 
       {actionError && <Banner tone="error">{actionError}</Banner>}
 

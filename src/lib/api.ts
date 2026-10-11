@@ -19,6 +19,8 @@ export function onSessionEnded(listener: Listener): () => void {
 export interface ApiOptions extends Omit<RequestInit, 'body'> {
   /** Sent as JSON. */
   json?: unknown
+  /** Sent as multipart/form-data. The browser adds the Content-Type with its boundary, so it is never set here. */
+  form?: FormData
   /** The caller handles 401 itself (sign-in and the "who am I" check), so do not signal. */
   handleUnauthorised?: boolean
 }
@@ -27,12 +29,14 @@ export function apiFetch(path: string, options: ApiOptions = {}): Promise<Respon
   if (!path.startsWith('/') || path.startsWith('//')) {
     return Promise.reject(new Error('apiFetch only accepts same-origin paths'))
   }
-  const { json, handleUnauthorised, headers: extra, ...init } = options
+  const { json, form, handleUnauthorised, headers: extra, ...init } = options
   const method = (init.method ?? 'GET').toUpperCase()
   const headers = new Headers(extra)
   if (MUTATING.has(method)) headers.set('X-Requested-With', 'fetch')
-  let body: string | undefined
-  if (json !== undefined) {
+  let body: string | FormData | undefined
+  if (form !== undefined) {
+    body = form
+  } else if (json !== undefined) {
     headers.set('Content-Type', 'application/json')
     body = JSON.stringify(json)
   }

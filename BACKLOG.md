@@ -6,7 +6,7 @@ Last updated: 11 October 2026
 > - **Adding:** only something you would actually do - a real bug, a feature idea you asked for, or a manual step you owe. You ask; the project-manager adds genuine follow-ups from a large change; Critical/High review and audit findings are added. Lower findings stay in the chat report until you triage them. Non-blocking review notes are never logged.
 > - **Accepted or won't-fix:** never a to-do. One line in "Known and accepted" below, or a code comment where the issue sits in one place. Reviews and audits read that section and do not re-raise it.
 > - **Entries are one to three lines:** what needs doing, not the history. Nothing here is actioned without explicit instruction.
-> - **IDs are stable and never reused**, even after an item is deleted, so gaps are expected. Next free ID: **#16**.
+> - **IDs are stable and never reused**, even after an item is deleted, so gaps are expected. Next free ID: **#17**.
 
 ---
 
@@ -22,7 +22,10 @@ Manual step for you, before launch: R2 can bill beyond the free tier, so set a b
 @cloudflare/vitest-pool-workers is renamed @cloudflare/vitest-plugin (warning on every test run). Do after the first feature (owner decision); also re-check the dev-only npm audit findings then.
 
 ### 15. Tighten CSP img-src
-img-src is 'self' data: https: in public/_headers. Narrow it when recipe photo uploads and previews are built.
+img-src is 'self' data: https: in public/_headers. Uploads now exist and src/ loads only same-origin images, so narrow it to 'self' data:, then load the sign-in screen once to confirm the Google button still renders.
+
+### 16. Measure upload CPU after deploy
+Upload one 25 MB multi-file recipe on the deployed Free Worker and check CPU time (error 1102 means over 10 ms). If it fails, move to Workers Paid or build a streaming one-file-per-request upload.
 
 ---
 
@@ -44,4 +47,4 @@ img-src is 'self' data: https: in public/_headers. Narrow it when recipe photo u
 - Moderation is manual in the D1/R2 dashboards; no in-app admin or report button; content of leavers/abusers stays until the owner deletes it on request - accepted (11 Oct 2026)
 - No self-service data deletion; manual on request - accepted (11 Oct 2026)
 - No in-app notice that recipes and uploads are visible to every signed-in user; the app must still never claim they are private - accepted (11 Oct 2026)
-- Orphaned R2 files can remain if file deletion fails after a recipe delete; unreachable via the app, cleaned by hand - accepted (11 Oct 2026)
+- Orphaned R2 files can remain if file deletion fails after a recipe delete, or if a write is cut off between the R2 upload and the D1 save; unreachable via the app, not counted by quotas, cleaned by hand - accepted (11 Oct 2026)

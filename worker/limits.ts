@@ -5,8 +5,8 @@ export const DEFAULT_WRITE_RATE_PER_MINUTE = 20
 const RATE_WINDOW_MS = 60_000
 
 /** Positive whole number from a config string, else the default (unset, empty, junk, zero, negative). */
-export function positiveInt(value: string | undefined, fallback: number): number {
-  if (typeof value !== 'string' || !/^\d{1,9}$/.test(value.trim())) return fallback
+export function positiveInt(value: string | undefined, fallback: number, maxDigits = 9): number {
+  if (typeof value !== 'string' || !new RegExp(`^\\d{1,${maxDigits}}$`).test(value.trim())) return fallback
   const n = Number(value.trim())
   return n > 0 ? n : fallback
 }
@@ -16,6 +16,33 @@ export const maxUserRecipes = (env: AppEnv): number =>
 
 export const writeRatePerMinute = (env: AppEnv): number =>
   positiveInt(env.WRITE_RATE_PER_MINUTE, DEFAULT_WRITE_RATE_PER_MINUTE)
+
+// File rules: product constants (not configuration). "MB" here means 1,048,576 bytes.
+const MIB = 1024 * 1024
+export const MAX_FILES_PER_RECIPE = 5
+export const MAX_FILE_BYTES = 10 * MIB
+export const MAX_RECIPE_FILE_BYTES = 25 * MIB
+/** Room for the recipe JSON (16 KB), part headers and boundaries on top of 25 MB of files. */
+export const MAX_MULTIPART_BYTES = MAX_RECIPE_FILE_BYTES + 64 * 1024
+
+export const DEFAULT_MAX_USER_STORAGE_BYTES = 100 * MIB
+export const DEFAULT_MAX_TOTAL_STORAGE_BYTES = 5 * 1024 * MIB
+
+// Byte caps can exceed nine digits (5 GB is ten), so allow up to 15 (still a safe integer).
+export const maxUserStorageBytes = (env: AppEnv): number =>
+  positiveInt(env.MAX_USER_STORAGE_BYTES, DEFAULT_MAX_USER_STORAGE_BYTES, 15)
+
+export const maxTotalStorageBytes = (env: AppEnv): number =>
+  positiveInt(env.MAX_TOTAL_STORAGE_BYTES, DEFAULT_MAX_TOTAL_STORAGE_BYTES, 15)
+
+export const STORAGE_FULL_MESSAGE =
+  "The app's shared storage is full, so this file could not be saved. Ask the owner to free up space."
+
+export const userStorageMessage = (maxBytes: number): string => {
+  const mb = maxBytes / MIB
+  const text = Number.isInteger(mb) ? String(mb) : mb.toFixed(1)
+  return `You have reached your ${text} MB upload limit. Delete a file or recipe you no longer need, then try again.`
+}
 
 export const recipeLimitMessage = (max: number): string =>
   `You have reached the limit of ${max} recipes. Delete one to add another.`

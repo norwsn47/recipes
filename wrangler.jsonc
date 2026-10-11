@@ -31,9 +31,9 @@
       "database_id": "e6303e93-052e-48f7-93b0-2fe30515abb3",
       "migrations_dir": "migrations"
     }
-  ]
+  ],
 
-  // OWNER STEP (later): R2 bucket, then uncomment:
-  // "r2_buckets": [{ "binding": "FILES", "bucket_name": "family-recipes-files" }]
-  // (no public bucket URL; files are served only through an authenticated Worker route.)
+  // R2 bucket for uploaded files (no public bucket URL; files are served only through the
+  // authenticated Worker route GET /api/recipes/:id/files/:fileId).
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "family-recipes-files" }]
 }

@@ -93,6 +93,12 @@ export async function counts(): Promise<{ users: number; sessions: number }> {
   return { users: u!.c, sessions: s!.c }
 }
 
+export async function resetBucket(): Promise<void> {
+  const listed = await baseEnv.FILES.list()
+  if (listed.objects.length) await baseEnv.FILES.delete(listed.objects.map((o) => o.key))
+}
+
 export async function resetDb(): Promise<void> {
+  await resetBucket()
   await baseEnv.DB.batch([baseEnv.DB.prepare('DELETE FROM recipes'), baseEnv.DB.prepare('DELETE FROM write_rate_limits'), baseEnv.DB.prepare('DELETE FROM sessions'), baseEnv.DB.prepare('DELETE FROM users')])
 }

@@ -1,6 +1,7 @@
 // Worker entry: routing, CSRF, then session auth for everything under /api/ except the public routes.
 import { handleGoogleSignIn, handleMe, handleSignOut } from './auth'
 import { checkCsrf } from './csrf'
+import { getFile } from './files'
 import { errorResponse, json } from './http'
 import type { AppEnv } from './http'
 import { withSecurityHeaders } from './security-headers'
@@ -26,7 +27,12 @@ const recipeIdRoutes: Record<string, (req: Request, env: AppEnv, user: SessionUs
   DELETE: (_req, env, user, id) => deleteRecipe(env, user, id),
 }
 
+// GET /api/recipes/:id/files/:fileId (authenticated file download/preview).
+const FILE_PATH = /^\/api\/recipes\/([A-Za-z0-9-]{1,64})\/files\/([A-Za-z0-9-]{1,64})$/
+
 function matchHandler(method: string, pathname: string): Handler | undefined {
+  const file = method === 'GET' ? FILE_PATH.exec(pathname) : null
+  if (file) return (req, env) => getFile(req, env, file[1], file[2])
   const exact = routes[`${method} ${pathname}`]
   if (exact) return exact
   const id = RECIPE_ID_PATH.exec(pathname)?.[1]

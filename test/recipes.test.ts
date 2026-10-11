@@ -25,7 +25,7 @@ const makeRecipe = async (cookie: string, over: Record<string, unknown> = {}) =>
   ((await (await create(cookie, { ...valid, ...over })).json()) as { recipe: Recipe }).recipe
 const rowCount = async (table: string) =>
   (await baseEnv.DB.prepare(`SELECT COUNT(*) AS c FROM ${table}`).first<{ c: number }>())!.c
-const withEnv = (extra: Partial<AppEnv>): AppEnv => ({ DB: baseEnv.DB, ...extra })
+const withEnv = (extra: Partial<AppEnv>): AppEnv => ({ DB: baseEnv.DB, FILES: baseEnv.FILES, ...extra })
 
 describe('auth and CSRF', () => {
   it('401 without a session on every recipe route, 403 on CSRF failure, nothing saved', async () => {

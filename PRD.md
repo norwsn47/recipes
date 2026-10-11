@@ -37,7 +37,7 @@ Priority order.
    - **Auth build is gated:** no authentication code is built without explicit confirmation from the project owner.
 2. **Add a recipe.** Any signed-in user can add a recipe with:
    - Title (required, maximum 100 characters)
-   - Time tag (required), exactly one of: "Less than 30 mins", "Around 1 hr", "Extensive prep"
+   - Time tag (required), exactly one of three, shown as "< 30 mins", "1 hr" and "1 hr +" (meaning under 30 minutes, about an hour, and longer; display labels shortened by owner decision on 11 October 2026, the stored values are unchanged: "Less than 30 mins", "Around 1 hr", "Extensive prep")
    - Category tags (required, at least one), chosen from a fixed list: Breakfast, Chicken, Fish, Pork, Beef, Lamb, Dessert, Baking, Other. A recipe can have several. These are separate from the time tag and do not replace it.
    - Link (optional, maximum 2,000 characters)
    - Uploaded file(s), PDF, PNG, JPG or HEIC (optional). Maximum 5 files per recipe, 10 MB per file, 25 MB total per recipe.
@@ -54,7 +54,7 @@ Priority order.
 6. **Edit and delete own recipes.** A user can edit or delete only recipes they added. Enforced on the server, not just hidden in the UI. Editing can add or remove files, and change link, notes and category tags, subject to the content rule, the file limits and the usage limits below. Deleting a recipe also deletes its uploaded files. Delete asks for confirmation.
    - Delete order: the recipe record is removed first, then its files. If removing a file from storage fails, the user still sees the recipe deleted, the failure is logged, and the orphaned file is cleaned up by the owner by hand. Orphaned files are never reachable through the app because files are only served via an existing recipe.
 7. **Usage limits (decided by the owner, replacing the earlier no-caps decision).** Reason: this is a small family app with very low expected use, and R2 can bill for overage, so a ceiling is kept even though only owner-approved test users can sign in. All limits are enforced on the server.
-   - **Global storage cap: 5 GB** of uploaded files across all users. Uploads that would take the total past it are refused.
+   - **Global storage cap: 5 GB (5 GiB, see item 10)** of uploaded files across all users. Uploads that would take the total past it are refused.
    - **Per user: 100 MB total uploads and 50 recipes.** Refused beyond either.
    - **Write rate limit: about 20 write requests per minute per user** (create, edit, delete, upload). Exceeding it returns 429 with a message. Exact figure and mechanism are a developer decision, provided it is roughly 20 per minute and does not itself cost many D1 writes.
    - **Existing limits stay:** 10 MB per file, 5 files per recipe, 25 MB per recipe.
@@ -71,6 +71,51 @@ Priority order.
    - **No unsaved-changes warning** when leaving the add or edit form. Accepted for v1.
    - **Non-owner opening an edit URL** sees "You cannot edit this one" (the server still returns 403 on the write). A nonexistent recipe id shows "not found".
 
+9. **Quick-add flow (owner decision, 11 October 2026; scope change).** Reason: most people will add only a name plus either a link or an uploaded file or photo; notes are rarely used. Adding must be as simple and easy as possible, on a phone first. This changes the add screen only. The fields, limits and content rule in item 2 are unchanged.
+   - **Add screen starts with two big choices:** "Paste a link" and "Add photo or file". Each is a large tap target (at least 44 px, ideally much bigger).
+   - **One file button covers camera, photos and files.** "Add photo or file" is a single file input, so on iPhone the system offers Take Photo / Photo Library / Choose File. The builder may use `accept` to limit to the allowed types (PDF, PNG, JPG, HEIC). Multiple files may be chosen, within the existing file limits. Server-side validation is unchanged and remains the real check.
+   - **Name is pre-filled after the choice.** Once the user has pasted a link or chosen a file, the name field is pre-filled with a predicted name (see below) for the user to accept or edit. Title remains required, maximum 100 characters. A predicted name longer than 100 characters is truncated.
+   - **Required tags are one-tap chips.** Time tag is a single-select chip group (exactly one). Categories are a multi-select chip group (at least one). Both stay required (owner decision); only the interaction is quicker. Chips have at least 44 px tap targets. Chip style (owner decision, 11 October 2026): on the add screen the categories are wrapping, tappable toggle buttons (chips), not a vertical list of checkboxes or radios, and the time tag uses the same chip style, single-select.
+   - **Notes are de-emphasised** behind a small "Add notes" link that reveals the notes field. If notes already have content (for example after a session-expiry retry) the field is shown open.
+   - **Editing an existing recipe** may keep a straightforward full form (all fields visible). It does not need the two-choice start.
+   - **Content rule unchanged and still enforced server-side:** at least one of link, file or notes. The UI simply leads with link or file. A user who skips both choices and adds only notes (via "Add notes") can still save.
+   - **Name prediction from a link (reverses the earlier "link scraping out of scope" for the title only).**
+     - Instant guess in the browser: a name derived from the URL path slug (for example `/recipes/chicken-tikka-masala` gives "Chicken tikka masala"): last meaningful path segment, file extension removed, hyphens, underscores and plus signs to spaces, percent-decoding, first letter capitalised. If there is no usable slug (empty path, a numeric-only or id-like segment), no guess is shown.
+     - Then the server fetches the pasted URL once and reads the page title, preferring `og:title`, then `<title>`, optionally JSON-LD Recipe `name`. If it returns a title, it replaces the slug guess **only if the user has not edited the name field** in the meantime.
+     - If the fetch fails, is blocked, times out or finds no title, the slug guess stays. No error is shown to the user.
+     - The prediction is only a suggestion. The user can always edit the name. Nothing is stored until Save. Only the title text is read: no other page content (ingredients, images, description) is extracted or stored. The link is still stored as given.
+     - Site-name suffixes (for example "Chicken tikka | BBC Good Food") are not required to be stripped in v1; the user can edit. The developer may trim an obvious trailing " | Site" or " - Site" if cheap, but this is not a requirement.
+   - **Name prediction from a file.** Suggest the file name without its extension, tidied (underscores and hyphens to spaces, first letter capitalised, trimmed). For camera or device names that carry no meaning (for example `IMG_1234`, `DSC00012`, `PXL_20261011_...`, `image`, `Screenshot ...`, or names that are mostly digits), leave the name empty and show a placeholder prompt such as "Name this recipe". With several files chosen, the first file is used. If a link has already produced a name, a later file choice does not overwrite a name the user has edited or a name already filled from the link.
+   - **Link title fetch: acceptance and security constraints.** A single authenticated endpoint (for example `POST /api/link-title`, developer decision) takes the URL and returns `{ title }` or an empty result. Requirements:
+     - Authenticated users only (valid session; 401 otherwise). It requires the same CSRF protection as other API requests (Origin check and `X-Requested-With: fetch`).
+     - Rate limited with its own limit of about 10 per minute per user, separate from the write limit (owner confirmed, 11 October 2026). Over the limit returns 429 and the app silently keeps the slug guess. The mechanism must not cost many D1 writes.
+     - The URL must be `http` or `https` only, maximum 2,000 characters, and parse as a valid URL. Anything else is rejected with 400 and no outbound request. URLs with embedded credentials (`user:pass@`) are rejected.
+     - Target restrictions: reject `localhost`, bare IP-literal hosts in private, loopback, link-local or otherwise reserved ranges, and non-standard-looking internal hostnames (no dot). The developer states in the code what Workers' own network isolation covers, and the code-reviewer checks this (SSRF).
+     - Short timeout: about 4 seconds in total for the fetch including redirects. On timeout, abort and return empty.
+     - Response size cap: read only the start of the body, stop early once the head is read or at about 64 KB, whichever comes first, and cancel the stream. Non-HTML content types (for example PDF, images) are not read: return empty.
+     - No credentials forwarded: no cookies, no `Authorization` header, nothing from the user's request. The outbound request uses a fixed generic `User-Agent`, `Accept: text/html` and `redirect: manual` handling as below.
+     - Redirects: a limited number (at most 3), each followed manually and each re-validated against the same http/https and target rules. A redirect to any other scheme or restricted target stops the fetch and returns empty.
+     - Extracted title returned as **plain text**: HTML entities decoded, tags stripped, whitespace collapsed, control characters removed, capped at 100 characters. The client puts it into the input value as text and never renders it as HTML.
+     - CPU-cheap parse: must stay within the Workers Free 10 ms CPU limit. A streaming parser (for example `HTMLRewriter`, already part of the Workers runtime, no new dependency) is the intended candidate. No new dependency without asking. JSON-LD, if included, is parsed only when small and is skipped if it risks the CPU limit. The developer measures and records the result.
+     - Failures degrade silently: any error, block, timeout, non-HTML response, missing title, rate limit or non-2xx status results in the slug guess remaining, with no error message to the user.
+     - Privacy: the target site sees a request from Cloudflare's network, not the user's IP address. The pasted URL is sent to the app's server even if the recipe is never saved, and is not stored or logged by the app (log the outcome class only, not the URL). The fetch result is not cached or stored.
+     - The endpoint never fetches on page load, only when the user pastes or submits a link in the add flow; it fires once per distinct URL (debounced), not on every keystroke.
+   - **Copy rules for this flow.** Button labels are "Paste a link" and "Add photo or file". The notes link reads "Add notes". The name field label stays "Name" or the existing title wording, with the placeholder "Name this recipe" when empty. No copy may say the app "reads", "imports", "saves" or "copies" the page or recipe from the link (only the title is suggested; the link is stored as given). No visible text about the fetch is needed. No copy may claim the fetch is private or anonymous beyond the factual point above, and nothing may call recipes private (see "Copy rules").
+
+10. **Decisions recorded 11 October 2026 (recipes stage B, files, after the localhost review; owner said "looks good"):**
+   - **Add entry point.** A floating circular "+" button at the bottom right of the list is how a recipe is added. It replaces the earlier top add button. The empty-library text points at it.
+   - **Files are viewable by every signed-in user, the same as recipes** (owner confirmed). Nothing narrows file access to the recipe's owner.
+   - **List versus detail.** List entries carry only whether a recipe has files; the file list (names, types, sizes) appears on the recipe detail only.
+   - **File serving.** Files are served inline by default, or as an attachment with `?download=1`. The response uses `Cache-Control: private, no-cache`, so browsers always re-check before reuse (owner chose this over a 5-minute cache).
+   - **Type check by content.** A PDF must start with `%PDF-`; a PDF with extra bytes before it is rejected (stricter than some PDF readers, accepted).
+   - **Units.** "MB" means 1,048,576 bytes everywhere, so the 5 GB global cap is 5 GiB and 10 MB is 10 MiB.
+   - **Cap responses.** The per-user storage, global storage and recipe caps return 409 (not 507), each with its own error code and the agreed message.
+   - **Delete order.** The database record is removed first, then storage. A storage failure is logged and the user sees success (see item 6).
+   - **Stray storage objects accepted.** An interrupted write (for example a connection drop mid-upload) can leave an unreferenced object in R2. Accepted; the owner cleans these by hand. They are never reachable through the app.
+   - **Edit file-count fix.** When editing, the 5-file limit counts existing files plus new ones minus removed ones.
+   - **Copy.** File-specific upload errors append "Remove that file below, or choose a different one, then save again." The content-rule error reads "Add a link, some notes or a photo or PDF so there is something to cook from."
+   - **Layout detail.** The page does not use `viewport-fit=cover` (no edge-to-edge under the iPhone notch); the floating button is positioned within the normal viewport. Accepted.
+
 ## Sharing and output
 - The product is a shared repository, so the "result" is the persistent list of recipes. Any signed-in user can return to it at any time.
 - Each recipe has a stable URL (for example `/recipes/<id>`) so it can be pasted into a chat. The link only works for signed-in people; anyone who has the link can view it only if they are one of the owner's Google test users and sign in.
@@ -82,9 +127,10 @@ Priority order.
 - There is deliberately no visibility notice on sign-in or on the add-recipe screen (see "Accepted risks").
 - No note on what is stored about users is shown in the app (project owner's decision).
 - Limit messages must be accurate to the limits actually enforced.
+- Time tags are always labelled "< 30 mins", "1 hr" and "1 hr +" in the app (the longer stored names are never shown).
 
 ## Data stored
-Recorded here only, not shown in the app: per user, the Google email and display name (plus the stable `sub` ID); per session, a hash of the random session token (the raw token lives only in the browser cookie), the user and its expiry; per recipe, its fields, uploaded files and added date.
+The link title lookup (Core features item 9) stores nothing: the pasted URL and the fetched page are used for the one request and discarded. Recorded here only, not shown in the app: per user, the Google email and display name (plus the stable `sub` ID); per session, a hash of the random session token (the raw token lives only in the browser cookie), the user and its expiry; per recipe, its fields, uploaded files and added date.
 
 ## Accepted risks
 Recorded as informed decisions by the project owner, not to be re-raised in reviews:
@@ -98,6 +144,7 @@ Recorded as informed decisions by the project owner, not to be re-raised in revi
 - **No visibility notice.** The app does not tell users that their recipes and files are visible to every signed-in user. Users may therefore upload content without realising how widely it is visible. The app never calls recipes "private" (see "Copy rules").
 - **Shared quota.** Test users can between them fill the global 5 GB cap (100 MB each) and block uploads for everyone until the owner clears content by hand. With a handful of owner-approved users this is unlikely.
 - **HEIC is not previewable outside Safari.** Other browsers get a labelled download.
+- **Title lookup makes the server fetch arbitrary user-supplied URLs.** Mitigated by the constraints in Core features item 9 (auth, scheme and target checks, redirect re-validation, timeout, size cap, rate limit). Only owner-approved test users can reach it. A suggested title from a hostile page is untrusted text and is only ever shown as plain text in an editable field.
 
 ## Out of scope
 - Admin role, roles or permissions beyond owner-only edit/delete.
@@ -112,7 +159,9 @@ Recorded as informed decisions by the project owner, not to be re-raised in revi
 - Comments, ratings, favourites, reactions, notifications.
 - Structured recipe content: ingredient lists, method steps, scaling, unit conversion, shopping lists, meal planning.
 - Free-form or custom tags (users adding, renaming or removing category tags; the fixed list is confirmed for v1, see Core features item 4; "Other" is the only catch-all) and ingredient fields.
-- Importing or scraping recipe content from a link (the link is stored as given).
+- Importing or scraping recipe content from a link: ingredients, method, images, descriptions or any other page content (the link is stored as given). The only exception is the suggested name (page title) in the quick-add flow, Core features item 9.
+- Storing, caching or logging the fetched page or the pasted URL from the title lookup; a link preview card; re-fetching titles for saved recipes.
+- A separate camera-only or files-only button, a drag-and-drop uploader, and an in-app image editor or cropper (one "Add photo or file" input is used).
 - File types other than PDF, PNG, JPG and HEIC (for example video, WebP, GIF, Word).
 - HEIC conversion to another format (client or server).
 - Native mobile app, offline mode.
@@ -148,13 +197,28 @@ Each is testable by hand or by an automated test.
 - **Notes:** plain text only, rendered as text and never as HTML.
 - **Edit/delete:** user B calling the edit or delete API on user A's recipe gets 403 and nothing changes. Deleting a recipe removes its files from storage (verified by trying to fetch a file URL afterwards, which fails). If storage removal of a file fails, the recipe is still gone from the app and the failure is logged.
 - **Deleted recipe:** opening the URL of a deleted recipe shows "not found", not an error page or data.
-- **Files served:** a file URL fetched without sign-in is refused. Files are not reachable through any public storage address.
+- **Files served:** a file URL fetched without sign-in is refused. Files are not reachable through any public storage address. Any signed-in user can open any recipe's files. A file opens inline by default and downloads with `?download=1`; the response carries `Cache-Control: private, no-cache`.
+- **Add button:** the list shows a floating circular "+" at the bottom right (at least 44 px) that opens the add screen; there is no add button at the top of the list.
+- **Time tag labels:** the app shows "< 30 mins", "1 hr" and "1 hr +" everywhere (add, edit, filter, list, detail); the stored values are unchanged.
 - **Categories, add:** saving with zero category tags is rejected with a visible message by both the UI and the server and nothing is saved. A recipe with several category tags saves and shows them all.
 - **Categories, validation:** the server accepts only values from the fixed list (Breakfast, Chicken, Fish, Pork, Beef, Lamb, Dessert, Baking, Other). Any other value (for example "Vegan", an empty string, a wrong-case variant, or a non-array) is rejected with a clear message and nothing is saved. Duplicate values in one request are rejected or collapsed to one.
 - **Categories, edit:** editing a recipe can change its category tags, but removing the last one is rejected by the UI and the server, and the recipe is unchanged. The same fixed-list validation applies.
 - **Categories, no custom tags:** there is no UI to create a category tag, and an API call with a new value is rejected.
-- **Filter and search:** choosing "Less than 30 mins" shows only recipes with that tag; choosing "Chicken" shows only recipes with that category; choosing "Chicken" and "Fish" shows recipes with either; searching "pasta" shows recipes whose title contains it regardless of case; combining time tag, category and search shows the intersection across types; no match shows "no recipes match".
+- **Filter and search:** choosing "< 30 mins" shows only recipes with that tag; choosing "Chicken" shows only recipes with that category; choosing "Chicken" and "Fish" shows recipes with either; searching "pasta" shows recipes whose title contains it regardless of case; combining time tag, category and search shows the intersection across types; no match shows "no recipes match".
 - **No privacy claims:** no text in the app calls recipes or uploads private or limited to the group (checked by reading all copy).
+- **Quick add, start screen:** opening Add shows two large choices, "Paste a link" and "Add photo or file", and the user can save a recipe with just a name, one time chip, one category chip and a link or a file, without touching notes. On iPhone Safari the file choice offers Take Photo, Photo Library and Choose File.
+- **Quick add, chips:** time chips are single-select (choosing another replaces the first); category chips are multi-select. Saving with no time chip or no category chip is rejected by UI and server (unchanged rules). Chips are at least 44 px high.
+- **Quick add, notes:** notes are hidden behind "Add notes" until tapped; a recipe saved with only notes (no link or file) still works; a recipe with no link, file or notes is still rejected by UI and server.
+- **Name from link, instant:** pasting `https://example.com/recipes/chicken-tikka-masala` fills "Chicken tikka masala" immediately. A URL with no usable slug leaves the name empty.
+- **Name from link, fetched:** for a page with an `og:title`, the name becomes that title (plain text, at most 100 characters) unless the user has already edited the name. With no `og:title`, `<title>` is used.
+- **Name from link, failure:** a blocked, slow (over about 4 seconds), non-HTML, erroring or title-less URL leaves the slug guess in place with no error shown.
+- **Name from file:** choosing `chicken_pie.pdf` fills "Chicken pie"; choosing `IMG_1234.jpg` leaves the name empty with the prompt "Name this recipe". The user can edit either. Nothing is saved until Save.
+- **Link title endpoint, auth and abuse:** a call without a session gets 401; without the CSRF protection is rejected; more than about 10 per minute per user gets 429; non-http(s) schemes, URLs with credentials, `localhost` and private or reserved IP literals get 400 and no outbound request is made.
+- **Link title endpoint, fetch safety:** the outbound request carries no cookies or `Authorization`; follows at most 3 redirects, re-validating each (a redirect to `file:`, `javascript:` or a private IP stops it); stops reading after about 64 KB or the end of `<head>`; does not read non-HTML responses; aborts after about 4 seconds.
+- **Link title endpoint, output:** a title containing `<script>`, HTML entities, newlines or over 100 characters comes back as plain text, tags stripped, whitespace collapsed and capped; it appears in the name field as text and never executes.
+- **Link title endpoint, CPU:** the parse completes within the Workers Free 10 ms CPU limit on typical recipe pages (developer measures and reports). If it cannot, the endpoint returns empty rather than exceeding it.
+- **Link title endpoint, privacy:** a test target site sees a request from Cloudflare, not from the tester's IP, and no cookie or credential from the app. The pasted URL is not stored or logged by the app.
+- **Edit form:** editing an existing recipe shows a straightforward full form with all fields; the quick-add start is not required there.
 - **Mobile:** every flow above (sign in, add with photo/file, browse, filter, view, edit, delete) works on a 375 px wide screen with one hand; tap targets are at least 44 px.
 - **Session expiry mid-add:** with an expired or removed session part-way through adding (or editing) a recipe, the app re-prompts sign-in and shows no 401 error page; after signing in the typed title, notes, link and tags are still there and the save can be retried (files may need re-selecting).
 - **Cost:** in normal use by the group the Cloudflare bill is zero. Worst-case spend is bounded by the 5 GB global cap. A Cloudflare billing/usage alert is set by the owner (manual step, confirmed before launch). Free-tier hard-stops on Workers and D1 are acceptable.
@@ -207,7 +271,7 @@ Standing rules:
 - The audience (client ID) used to verify sign-in is configuration, never hardcoded.
 
 ## Success metrics
-- All three or four people can sign in with Google and add a recipe within a minute of opening the app, on a phone.
+- All three or four people can sign in with Google and add a recipe within a minute of opening the app, on a phone. With the quick-add flow, adding a link or photo plus two chip taps and a check of the suggested name should take well under that.
 - A signed-out request cannot read or write recipes or files (checked by direct API call without a session as well as through the browser).
 - A user cannot edit or delete another user's recipe, including by calling the API directly.
 - Uploads outside the file rules (type, size, count, total) and beyond the usage caps are refused by the server.

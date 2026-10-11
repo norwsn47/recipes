@@ -77,14 +77,7 @@ export function RecipeList() {
   }
 
   return (
-    <section className="flex flex-col gap-6 pb-8">
-      <Link
-        to="/recipes/new"
-        className="inline-flex min-h-12 items-center justify-center rounded-lg bg-primary px-6 text-lg font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-      >
-        Add a recipe
-      </Link>
-
+    <section className="flex flex-col gap-6" style={{ paddingBottom: 'calc(6.5rem + env(safe-area-inset-bottom))' }}>
       <div className="flex flex-col gap-4">
         <div className="space-y-1.5">
           <label htmlFor="recipe-search" className="block text-sm font-semibold">Search by title</label>
@@ -135,13 +128,7 @@ export function RecipeList() {
           ) : (
             <div className="flex flex-col items-start gap-3">
               <p className="text-lg font-semibold">No recipes saved yet</p>
-              <p className="text-muted-foreground">Add the first family favourite with a link or a few notes.</p>
-              <Link
-                to="/recipes/new"
-                className="inline-flex min-h-11 items-center rounded-lg border border-input px-5 font-semibold text-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              >
-                Add the first recipe
-              </Link>
+              <p className="text-muted-foreground">Tap the green + button to add the first family favourite, with a link, a few notes or a photo.</p>
             </div>
           )
         )}
@@ -155,6 +142,21 @@ export function RecipeList() {
       </div>
 
       <OutbuildMark appName={APP_NAME} className="pt-6" />
+
+      {/* Floating add button. Right edge: the content column's right edge (36rem = max-w-xl) on wide screens, the viewport edge on phones. */}
+      <Link
+        to="/recipes/new"
+        aria-label="Add recipe"
+        className="fixed z-10 flex size-14 items-center justify-center rounded-full border-4 border-background bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        style={{
+          bottom: 'calc(1rem + env(safe-area-inset-bottom))',
+          right: 'max(calc(1rem + env(safe-area-inset-right)), calc((100vw - 36rem) / 2 + 1rem))',
+        }}
+      >
+        <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </Link>
     </section>
   )
 }

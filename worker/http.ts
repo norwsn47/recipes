@@ -1,5 +1,11 @@
 export interface AppEnv {
   DB: D1Database
+  /** R2 bucket for uploaded files. No public access; served only via the authenticated route. */
+  FILES: R2Bucket
+  /** Global upload cap in bytes (default 5 GB). Optional; parsed defensively. */
+  MAX_TOTAL_STORAGE_BYTES?: string
+  /** Per-user upload cap in bytes (default 100 MB). Optional; parsed defensively. */
+  MAX_USER_STORAGE_BYTES?: string
   /** Google OAuth client ID (ID token audience). Empty or unset means sign-in fails closed. */
   GOOGLE_CLIENT_ID?: string
   /** Per-user recipe cap (default 50). Optional; parsed defensively. */
