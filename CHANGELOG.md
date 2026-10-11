@@ -5,6 +5,12 @@ Last updated: 11 October 2026
 
 ---
 
+## 11 October 2026 - Stack locked; usage limits reinstated; own session cookie
+- Stack: React 18, Vite and Tailwind v4 single-page app on one Cloudflare Worker (static assets plus /api/*), with D1 and R2. wrangler approved as a dev dependency (wrangler only).
+- Reversal: the earlier "no caps or rate limiting" decision is replaced. Limits now: 5 GB global storage, 100 MB and 50 recipes per user, about 20 writes per minute per user, plus the existing file and recipe limits. Reason: small family app, very low expected use, and R2 can bill overage.
+- Sessions: the Google ID token is verified once at sign-in, then the app issues its own session cookie backed by a D1 sessions table (replaces verifying the Google token on every request).
+- HEIC is stored as is: Safari previews it, other browsers get a download.
+
 ## 11 October 2026 - In-app Google sign-in replaces Cloudflare Access
 - Decided by the user: the server verifies the Google ID token itself. Cloudflare Access is dropped.
 - Why: with open sign-in, Access seats (assumed free cap of 50, unverified) could be filled by strangers and lock out the real group. Still auth work: no auth build without explicit user confirmation.

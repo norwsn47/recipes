@@ -6,7 +6,7 @@ Last updated: 11 October 2026
 > - **Adding:** only something you would actually do - a real bug, a feature idea you asked for, or a manual step you owe. You ask; the project-manager adds genuine follow-ups from a large change; Critical/High review and audit findings are added. Lower findings stay in the chat report until you triage them. Non-blocking review notes are never logged.
 > - **Accepted or won't-fix:** never a to-do. One line in "Known and accepted" below, or a code comment where the issue sits in one place. Reviews and audits read that section and do not re-raise it.
 > - **Entries are one to three lines:** what needs doing, not the history. Nothing here is actioned without explicit instruction.
-> - **IDs are stable and never reused**, even after an item is deleted, so gaps are expected. Next free ID: **#7**.
+> - **IDs are stable and never reused**, even after an item is deleted, so gaps are expected. Next free ID: **#8**.
 
 ---
 
@@ -21,14 +21,14 @@ Manual step for you: set up the Cloudflare account (Workers, D1, R2). Zero Trust
 ### 3. Add the GitHub repo URL as the remote
 Manual step: give the main session the repo URL once created, so it can add the remote.
 
-### 4. Decide whether to install wrangler
-Stage 2 decision: wrangler (Cloudflare CLI) is not installed and is needed to deploy and manage D1/R2. Ask before installing.
+### 5. Check two unverified Cloudflare points
+At R2 setup, note whether a payment method is required. After launch, check in the dashboard whether static asset requests count toward the 100,000 requests/day Workers limit.
 
-### 5. Verify Cloudflare free-tier limits
-Check R2 and D1 free limits on official Cloudflare pages, and whether the free plan hard-stops or can bill overage (no caps are set), before locking the stack.
+### 6. Set a Cloudflare billing/usage alert
+Manual step for you, before launch: R2 can bill beyond the free tier, so set a billing or usage notification in the Cloudflare dashboard.
 
-### 6. Decide how HEIC photos are handled
-Stage 2 question: convert in browser, convert on server, or store as is with download fallback. May need a new dependency - ask first.
+### 7. Confirm the session lifetime
+Before the auth build: confirm the session lifetime (PRD lean: 30 days sliding; alternative a fixed 7 or 14 days). Auth build also needs your explicit go-ahead.
 
 ---
 
@@ -43,8 +43,9 @@ Stage 2 question: convert in browser, convert on server, or store as is with dow
 <!-- Not to-dos. Decisions not to fix something, so reviews and audits don't raise them again. -->
 <!-- One line each: what, and why it's accepted. e.g. "Dialogs don't trap keyboard focus - accepted, low keyboard use (27 Sep 2026)" -->
 - Any Google account can sign in, so anyone with the address can view all recipes and upload files; spam/abuse possible, owner responsible for content - chosen by the user (11 Oct 2026)
-- No per-user caps, global storage cap or rate limiting; a signed-in user could fill free storage or exhaust free-tier limits - accepted by the user (11 Oct 2026)
-- If the free tier runs out, saves and uploads fail until the owner acts - accepted (11 Oct 2026)
+- One abusive user, or several accounts, can fill the shared 5 GB cap and block uploads for everyone until the owner clears content by hand; residual R2 overage is bounded by the caps, not eliminated - accepted (11 Oct 2026)
+- If the Workers or D1 free tier runs out, the app errors until 00:00 UTC (no bill) - accepted (11 Oct 2026)
+- HEIC files preview only in Safari; other browsers get a labelled download - accepted (11 Oct 2026)
 - Moderation is manual in the D1/R2 dashboards; no in-app admin or report button; content of leavers/abusers stays until the owner deletes it on request - accepted (11 Oct 2026)
 - No self-service data deletion; manual on request - accepted (11 Oct 2026)
 - No in-app notice that recipes and uploads are visible to every signed-in user; the app must still never claim they are private - accepted (11 Oct 2026)
