@@ -94,5 +94,5 @@ export async function counts(): Promise<{ users: number; sessions: number }> {
 }
 
 export async function resetDb(): Promise<void> {
-  await baseEnv.DB.batch([baseEnv.DB.prepare('DELETE FROM sessions'), baseEnv.DB.prepare('DELETE FROM users')])
+  await baseEnv.DB.batch([baseEnv.DB.prepare('DELETE FROM recipes'), baseEnv.DB.prepare('DELETE FROM write_rate_limits'), baseEnv.DB.prepare('DELETE FROM sessions'), baseEnv.DB.prepare('DELETE FROM users')])
 }

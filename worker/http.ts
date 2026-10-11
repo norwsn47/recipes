@@ -2,6 +2,10 @@ export interface AppEnv {
   DB: D1Database
   /** Google OAuth client ID (ID token audience). Empty or unset means sign-in fails closed. */
   GOOGLE_CLIENT_ID?: string
+  /** Per-user recipe cap (default 50). Optional; parsed defensively. */
+  MAX_USER_RECIPES?: string
+  /** Per-user write requests per minute (default 20). Optional; parsed defensively. */
+  WRITE_RATE_PER_MINUTE?: string
 }
 
 export const json = (body: unknown, status = 200, headers?: HeadersInit): Response => {

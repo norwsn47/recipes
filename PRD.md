@@ -62,6 +62,15 @@ Priority order.
    - Each refusal shows a clear message saying which limit was hit and what to do (see acceptance criteria).
    - The usage figures count stored file bytes (and recipe rows for the 50-recipe limit). They are not shown as a meter in v1.
 
+8. **Decisions recorded 11 October 2026 (recipes stage A, after the localhost review):**
+   - **Rate limit is approximate (owner accepted).** It is a fixed-window counter in D1 per user, so up to about twice the limit (about 40 writes) can pass across a window boundary. A Durable Object for an exact limit is not used. Over the limit, the response is 429 with `Retry-After: 60`.
+   - **Recipe cap error:** the 51st create is refused with 409 `recipe_limit_reached` and the agreed message. The check is atomic with the insert.
+   - **Editing is a full replace** (PUT with every field). There is no PATCH.
+   - **Title search is case-insensitive substring matching done in the Worker**, so "%" and "_" are ordinary characters and non-ASCII letters fold case correctly.
+   - **Empty link or notes are stored as no value** (blank or whitespace-only input counts as not provided, for the content rule too). Text fields are trimmed.
+   - **No unsaved-changes warning** when leaving the add or edit form. Accepted for v1.
+   - **Non-owner opening an edit URL** sees "You cannot edit this one" (the server still returns 403 on the write). A nonexistent recipe id shows "not found".
+
 ## Sharing and output
 - The product is a shared repository, so the "result" is the persistent list of recipes. Any signed-in user can return to it at any time.
 - Each recipe has a stable URL (for example `/recipes/<id>`) so it can be pasted into a chat. The link only works for signed-in people; anyone who has the link can view it only if they are one of the owner's Google test users and sign in.
@@ -108,6 +117,7 @@ Recorded as informed decisions by the project owner, not to be re-raised in revi
 - HEIC conversion to another format (client or server).
 - Native mobile app, offline mode.
 - A logo, brand images or any other imagery for the app itself (v1 uses the app name as plain text; user-uploaded recipe files are unaffected).
+- PATCH (partial update) of recipes, an exact (non-approximate) write rate limit, and an unsaved-changes warning on the recipe form.
 - Anything above the three or four user scale for normal use (pagination, performance tuning for large libraries).
 
 ## Acceptance criteria

@@ -21,12 +21,6 @@ Manual step for you, before launch: R2 can bill beyond the free tier, so set a b
 ### 8. Replace the deprecated test pool
 @cloudflare/vitest-pool-workers is renamed @cloudflare/vitest-plugin (warning on every test run). Do after the first feature (owner decision); also re-check the dev-only npm audit findings then.
 
-### 9. Replace the placeholder home screen
-The "API reachable" banner and "Setup complete" card are gone; src/App.tsx now has a minimal placeholder Home and /recipes/:id. Replace with the real recipe list and view (the Outbuild mark stays).
-
-### 14. Check security headers after deploy
-Manual step after the next deploy: `curl -I` the site and /api/health to confirm _headers applies to the SPA (including the fallback route), then sign in and check the console for CSP violations.
-
 ### 15. Tighten CSP img-src
 img-src is 'self' data: https: in public/_headers. Narrow it when recipe photo uploads and previews are built.
 
