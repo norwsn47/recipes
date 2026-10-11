@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import { Banner, Button, PageHeader } from '@design-system/components'
 import { useAuth } from './AuthContext'
 import { SignInScreen } from './SignInScreen'
+import { shellKey } from './shellKey'
 
 export const APP_NAME = 'Family Recipes'
 
@@ -9,7 +10,9 @@ export const APP_NAME = 'Family Recipes'
  * Route guard and shell. Signed out: only the sign-in screen, rendered at the current URL, so
  * after signing in the visitor is already on the page they asked for (nothing to redirect, so no
  * open redirect). Expired mid-use: the route tree stays mounted (form state survives) and the
- * sign-in appears as an overlay; the content behind is inert.
+ * sign-in appears as an overlay; the content behind is inert. If a different account signs in
+ * from the overlay, the content is keyed on the user id so it remounts and the previous user's
+ * unsaved state is not carried over; the same account keeps it mounted.
  */
 export function AppShell() {
   const { status, user, signOut, retry } = useAuth()
@@ -30,7 +33,7 @@ export function AppShell() {
   const expired = status === 'expired'
   return (
     <>
-      <div className="mx-auto w-full max-w-xl px-4" ref={(el) => { if (el) el.inert = expired }}>
+      <div key={shellKey(user)} className="mx-auto w-full max-w-xl px-4" ref={(el) => { if (el) el.inert = expired }}>
         <PageHeader
           title={APP_NAME}
           right={

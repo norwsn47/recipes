@@ -6,7 +6,7 @@ Last updated: 11 October 2026
 > - **Adding:** only something you would actually do - a real bug, a feature idea you asked for, or a manual step you owe. You ask; the project-manager adds genuine follow-ups from a large change; Critical/High review and audit findings are added. Lower findings stay in the chat report until you triage them. Non-blocking review notes are never logged.
 > - **Accepted or won't-fix:** never a to-do. One line in "Known and accepted" below, or a code comment where the issue sits in one place. Reviews and audits read that section and do not re-raise it.
 > - **Entries are one to three lines:** what needs doing, not the history. Nothing here is actioned without explicit instruction.
-> - **IDs are stable and never reused**, even after an item is deleted, so gaps are expected. Next free ID: **#14**.
+> - **IDs are stable and never reused**, even after an item is deleted, so gaps are expected. Next free ID: **#16**.
 
 ---
 
@@ -24,11 +24,11 @@ Manual step for you, before launch: R2 can bill beyond the free tier, so set a b
 ### 9. Replace the placeholder home screen
 The "API reachable" banner and "Setup complete" card are gone; src/App.tsx now has a minimal placeholder Home and /recipes/:id. Replace with the real recipe list and view (the Outbuild mark stays).
 
-### 11. Fix account switch at the session-expiry overlay
-If a different Google account signs in from the expiry overlay, src/auth/AuthContext.tsx:52 drops the user and shows the sign-in screen again. Set the new user and remount the route tree; add a test.
+### 14. Check security headers after deploy
+Manual step after the next deploy: `curl -I` the site and /api/health to confirm _headers applies to the SPA (including the fallback route), then sign in and check the console for CSP violations.
 
-### 12. Add security headers
-Add public/_headers with a CSP (allowing Google Identity Services), frame-ancestors and nosniff. Also consider inverting the CSRF verb check in worker/csrf.ts to treat everything except GET/HEAD/OPTIONS as mutating.
+### 15. Tighten CSP img-src
+img-src is 'self' data: https: in public/_headers. Narrow it when recipe photo uploads and previews are built.
 
 ---
 
