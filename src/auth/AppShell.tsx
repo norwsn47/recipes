@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useMatch } from 'react-router-dom'
+import { isWakeLockSupported } from '../lib/wakeLock'
+import { KeepScreenOn } from '../recipes/KeepScreenOn'
+import { BackLink } from '../recipes/BackLink'
 import { Banner, Button, Dialog, OutbuildMark } from '@design-system/components'
 import { useAuth } from './AuthContext'
 import { SignInScreen } from './SignInScreen'
@@ -19,6 +22,10 @@ export const APP_NAME = 'Family Recipes'
 export function AppShell() {
   const { status, user, signOut, retry } = useAuth()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // On a recipe page the header carries "Keep screen on" instead of the settings gear (owner decision).
+  const recipeMatch = useMatch('/recipes/:id')
+  const viewingRecipeId = recipeMatch && recipeMatch.params.id !== 'new' ? recipeMatch.params.id : undefined
+  const showKeepScreenOn = Boolean(viewingRecipeId) && typeof navigator !== 'undefined' && isWakeLockSupported(navigator)
   // Stable onClose: the Dialog refocuses its first control whenever onClose changes.
   const closeSettings = useCallback(() => setSettingsOpen(false), [])
 
@@ -50,15 +57,27 @@ export function AppShell() {
             (min-h-14, truncating title that never overlaps the button) with left alignment.
             Design-system candidate: a left-aligned PageHeader variant. */}
         <header className="flex min-h-14 items-center justify-between gap-2">
-          <h1 className="min-w-0 truncate text-lg">{APP_NAME}</h1>
-          <button
-            type="button"
-            aria-label="Settings"
-            onClick={() => setSettingsOpen(true)}
-            className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          >
-            <SettingsIcon />
-          </button>
+          {viewingRecipeId ? (
+            <>
+              {/* On a recipe page the back link replaces the app name (owner decision); the name stays for screen readers. */}
+              <h1 className="sr-only">{APP_NAME}</h1>
+              <BackLink />
+            </>
+          ) : (
+            <h1 className="min-w-0 truncate text-lg">{APP_NAME}</h1>
+          )}
+          {showKeepScreenOn ? (
+            <KeepScreenOn key={viewingRecipeId} />
+          ) : (
+            <button
+              type="button"
+              aria-label="Settings"
+              onClick={() => setSettingsOpen(true)}
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <SettingsIcon />
+            </button>
+          )}
         </header>
         <Dialog open={settingsOpen} onClose={closeSettings} title={APP_NAME}>
           <p className="mb-3 text-muted-foreground">
