@@ -12,17 +12,11 @@ Last updated: 18 October 2026
 
 ## To do
 
-### 5. Check two unverified Cloudflare points
-At R2 setup, note whether a payment method is required. After launch, check in the dashboard whether static asset requests count toward the 100,000 requests/day Workers limit.
-
 ### 6. Set a Cloudflare billing/usage alert
 Manual step for you, before launch: R2 can bill beyond the free tier, so set a billing or usage notification in the Cloudflare dashboard.
 
 ### 8. Replace the deprecated test pool
 @cloudflare/vitest-pool-workers is renamed @cloudflare/vitest-plugin (warning on every test run). Do after the first feature (owner decision); also re-check the dev-only npm audit findings then.
-
-### 15. Tighten CSP img-src
-img-src is 'self' data: https: in public/_headers. Uploads now exist and src/ loads only same-origin images, so narrow it to 'self' data:, then load the sign-in screen once to confirm the Google button still renders.
 
 ### 16. Measure upload CPU after deploy
 Upload one 25 MB multi-file recipe on the deployed Free Worker and check CPU time (error 1102 means over 10 ms). If it fails, move to Workers Paid or build a streaming one-file-per-request upload.
