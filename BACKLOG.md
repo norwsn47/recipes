@@ -24,9 +24,6 @@ Upload one 25 MB multi-file recipe on the deployed Free Worker and check CPU tim
 ### 17. Check link title lookup CPU after deploy
 Migration 0004 is applied and pasting a real link works live (18 Oct 2026). Remaining: check CPU time for /api/link-title in the dashboard (10 ms limit).
 
-### 18. Apply migration 0005 (favourites) to remote D1 before the deploy goes live
-Main session, after merge: apply `0005_favourites.sql` then smoke-test hearts and the Favourites chip on the live site with two users.
-
 ---
 
 ## Blocked / waiting on a decision or something external
