@@ -357,6 +357,86 @@ describe('createWakeLock', () => {
   })
 })
 
+describe('createWakeLock: device lets go while the page is visible', () => {
+  it('asks again once, and stays on if that works', async () => {
+    const { env, lock, calls, tick } = setup()
+    lock.setOn(true)
+    const s1 = fakeSentinel()
+    calls[0].resolve(s1)
+    await tick()
+    s1.fireRelease() // e.g. Low Power Mode, page still visible
+    expect(env.request).toHaveBeenCalledTimes(2)
+    calls[1].resolve(fakeSentinel())
+    await tick()
+    expect(env.onStateChange).not.toHaveBeenCalled()
+    expect(env.onError).not.toHaveBeenCalled()
+  })
+
+  it('turns off with one error if it lets go again while still visible', async () => {
+    const { env, lock, calls, tick } = setup()
+    lock.setOn(true)
+    const s1 = fakeSentinel()
+    calls[0].resolve(s1)
+    await tick()
+    s1.fireRelease()
+    const s2 = fakeSentinel()
+    calls[1].resolve(s2)
+    await tick()
+    s2.fireRelease()
+    expect(env.request).toHaveBeenCalledTimes(2) // no loop
+    expect(env.onStateChange).toHaveBeenCalledWith(false)
+    expect(env.onError).toHaveBeenCalledTimes(1)
+  })
+
+  it('turns off with one error if the retry request fails', async () => {
+    const { env, lock, calls, tick } = setup()
+    lock.setOn(true)
+    const s1 = fakeSentinel()
+    calls[0].resolve(s1)
+    await tick()
+    s1.fireRelease()
+    calls[1].reject(new Error('NotAllowedError'))
+    await tick()
+    expect(env.onStateChange).toHaveBeenCalledWith(false)
+    expect(env.onError).toHaveBeenCalledTimes(1)
+  })
+
+  it('gets a fresh retry after a hide and show cycle', async () => {
+    const { env, lock, state, calls, tick } = setup()
+    lock.setOn(true)
+    const s1 = fakeSentinel()
+    calls[0].resolve(s1)
+    await tick()
+    s1.fireRelease() // visible release: uses the one retry
+    const s2 = fakeSentinel()
+    calls[1].resolve(s2)
+    await tick()
+    state.visible = false
+    s2.fireRelease()
+    lock.onVisibilityChange()
+    state.visible = true
+    lock.onVisibilityChange()
+    const s3 = fakeSentinel()
+    calls[2].resolve(s3)
+    await tick()
+    s3.fireRelease() // visible release again: retry allowed afresh
+    expect(env.request).toHaveBeenCalledTimes(4)
+    expect(env.onError).not.toHaveBeenCalled()
+  })
+
+  it('does nothing when it lets go after being switched off', async () => {
+    const { env, lock, calls, tick } = setup()
+    lock.setOn(true)
+    const s1 = fakeSentinel()
+    calls[0].resolve(s1)
+    await tick()
+    lock.setOn(false)
+    s1.fireRelease()
+    expect(env.request).toHaveBeenCalledTimes(1)
+    expect(env.onError).not.toHaveBeenCalled()
+  })
+})
+
 describe('isWakeLockSupported', () => {
   it('is false without wakeLock or without a navigator', () => {
     expect(isWakeLockSupported({})).toBe(false)
