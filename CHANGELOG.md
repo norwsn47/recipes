@@ -5,6 +5,11 @@ Last updated: 18 October 2026
 
 ---
 
+## 18 October 2026 - Personal favourites; home screen layout; Outbuild mark moved
+- Personal favourites: a heart on each card and recipe page, and a "♡ Favourites" chip at the start of the filter row that combines with category, time and search.
+- Home screen: search (icon, no label), one scrolling chip row (Favourites, divider, All, categories), time behind "More filters", then the list.
+- Owner decision, departing from design-system/DESIGN.md: the "by Outbuild" mark is shown in the settings pop-up, not on the home screen.
+
 ## 18 October 2026 - Category filter is one at a time; header and settings
 - Reversal (owner decision): the list's category filter selects one category at a time (tap another to switch, tap again for All), in a single sideways-scrolling row. Recipes can still have several categories.
 - Header shows the app name on the left and a settings icon on the right; Sign out moved into a settings pop-up with a short description of the app.

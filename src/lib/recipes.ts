@@ -66,6 +66,8 @@ export interface RecipeSummary {
   hasLink: boolean
   hasNotes: boolean
   hasFiles: boolean
+  /** The signed-in user's own favourite state. */
+  favourite: boolean
 }
 
 export interface RecipeDetail extends RecipeSummary {
@@ -114,6 +116,7 @@ export interface ListFilters {
   time: TimeTag | null
   categories: Category[]
   q: string
+  favourites?: boolean
 }
 
 export async function listRecipes(filters: ListFilters, signal?: AbortSignal): Promise<RecipeSummary[]> {
@@ -121,9 +124,16 @@ export async function listRecipes(filters: ListFilters, signal?: AbortSignal): P
   if (filters.time) params.set('time', filters.time)
   if (filters.categories.length > 0) params.set('categories', filters.categories.join(','))
   if (filters.q.trim()) params.set('q', filters.q.trim())
+  if (filters.favourites) params.set('favourites', '1')
   const qs = params.toString()
   const res = await apiFetch(`/api/recipes${qs ? `?${qs}` : ''}`, { signal })
   return (await readJson<{ recipes: RecipeSummary[] }>(res)).recipes
+}
+
+/** Sets or clears the signed-in user's favourite. Idempotent on the server. Resolves to the confirmed state. */
+export async function setFavourite(id: string, on: boolean): Promise<boolean> {
+  const res = await apiFetch(`/api/recipes/${encodeURIComponent(id)}/favourite`, { method: on ? 'PUT' : 'DELETE' })
+  return (await readJson<{ favourite: boolean }>(res)).favourite
 }
 
 /**

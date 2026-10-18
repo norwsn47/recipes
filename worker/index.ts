@@ -6,7 +6,7 @@ import { handleLinkTitle } from './link-title'
 import { errorResponse, json } from './http'
 import type { AppEnv } from './http'
 import { withSecurityHeaders } from './security-headers'
-import { createRecipe, deleteRecipe, getRecipe, listRecipes, updateRecipe } from './recipes'
+import { clearFavourite, createRecipe, deleteRecipe, getRecipe, listRecipes, setFavourite, updateRecipe } from './recipes'
 import { sessionCookie, validateSession } from './session'
 import type { SessionUser } from './session'
 
@@ -29,12 +29,21 @@ const recipeIdRoutes: Record<string, (req: Request, env: AppEnv, user: SessionUs
   DELETE: (_req, env, user, id) => deleteRecipe(env, user, id),
 }
 
+// PUT / DELETE /api/recipes/:id/favourite (the signed-in user's own favourite).
+const FAVOURITE_PATH = /^\/api\/recipes\/([A-Za-z0-9-]{1,64})\/favourite$/
+
 // GET /api/recipes/:id/files/:fileId (authenticated file download/preview).
 const FILE_PATH = /^\/api\/recipes\/([A-Za-z0-9-]{1,64})\/files\/([A-Za-z0-9-]{1,64})$/
 
 function matchHandler(method: string, pathname: string): Handler | undefined {
   const file = method === 'GET' ? FILE_PATH.exec(pathname) : null
   if (file) return (req, env) => getFile(req, env, file[1], file[2])
+  const fav = method === 'PUT' || method === 'DELETE' ? FAVOURITE_PATH.exec(pathname) : null
+  if (fav) {
+    return method === 'PUT'
+      ? (_req, env, user) => setFavourite(env, user, fav[1])
+      : (_req, env, user) => clearFavourite(env, user, fav[1])
+  }
   const exact = routes[`${method} ${pathname}`]
   if (exact) return exact
   const id = RECIPE_ID_PATH.exec(pathname)?.[1]
