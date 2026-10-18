@@ -6,7 +6,7 @@ Last updated: 18 October 2026
 > - **Adding:** only something you would actually do - a real bug, a feature idea you asked for, or a manual step you owe. You ask; the project-manager adds genuine follow-ups from a large change; Critical/High review and audit findings are added. Lower findings stay in the chat report until you triage them. Non-blocking review notes are never logged.
 > - **Accepted or won't-fix:** never a to-do. One line in "Known and accepted" below, or a code comment where the issue sits in one place. Reviews and audits read that section and do not re-raise it.
 > - **Entries are one to three lines:** what needs doing, not the history. Nothing here is actioned without explicit instruction.
-> - **IDs are stable and never reused**, even after an item is deleted, so gaps are expected. Next free ID: **#19**.
+> - **IDs are stable and never reused**, even after an item is deleted, so gaps are expected. Next free ID: **#20**.
 
 ---
 
@@ -23,6 +23,9 @@ Upload one 25 MB multi-file recipe on the deployed Free Worker and check CPU tim
 
 ### 17. Check link title lookup CPU after deploy
 Migration 0004 is applied and pasting a real link works live (18 Oct 2026). Remaining: check CPU time for /api/link-title in the dashboard (10 ms limit).
+
+### 19. Check PDF previews after deploy
+Open a multi-page PDF on the live site: confirm the PDF.js worker (.mjs) loads with a JavaScript MIME type and the console shows no CSP violations. Also check the Cloudflare build Node version is 22.13 or later if Workers Builds is ever used (pdfjs-dist engine requirement).
 
 ---
 

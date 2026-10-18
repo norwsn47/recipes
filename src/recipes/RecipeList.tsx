@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge, Banner, Button, Card, Input, SectionLabel } from '@design-system/components'
 import { useAuth } from '../auth/AuthContext'
-import { CATEGORIES, TIME_TAGS, formatDate, listRecipes, timeLabel } from '../lib/recipes'
+import { firstName, linkHostname, shortDate } from '../lib/format'
+import { CATEGORIES, TIME_TAGS, listRecipes, timeLabel } from '../lib/recipes'
 import type { Category, RecipeSummary, TimeTag } from '../lib/recipes'
 import { FavouriteButton } from './FavouriteButton'
 import { FavouriteNotice } from './FavouriteNotice'
@@ -14,27 +15,56 @@ const SEARCH_DEBOUNCE_MS = 300
 type Result = { key: string; recipes: RecipeSummary[] } | { key: string; failed: true }
 
 function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
-  const extras = [recipe.hasLink && 'Has a link', recipe.hasNotes && 'Has notes', recipe.hasFiles && 'Has files'].filter(Boolean)
+  // Compact meta (owner decision): first name and short date, plus a paperclip when there are files.
+  const domain = recipe.link ? linkHostname(recipe.link) : null
   return (
     <li>
-      <Card className="relative p-4 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring">
+      {/* p-4! overrides Card's own p-6 (cn does not merge classes). */}
+      <Card className="relative p-4! focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring">
         {/* The heart is a sibling of the link (never nested in it), above the link's card-sized overlay. */}
         <FavouriteButton recipeId={recipe.id} favourite={recipe.favourite} describedBy={`recipe-title-${recipe.id}`} className="absolute right-1 top-1 z-10" />
-        <h3 className="pr-12 text-xl">
+        <h3 className="pr-12 text-[20px] leading-tight">
           <Link id={`recipe-title-${recipe.id}`} to={`/recipes/${recipe.id}`} className="outline-none after:absolute after:inset-0">
             {recipe.title}
           </Link>
         </h3>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <Badge variant="highlight">{timeLabel(recipe.timeTag)}</Badge>
+          <Badge variant="tint">{timeLabel(recipe.timeTag)}</Badge>
           {recipe.categories.map((c) => (
             <Badge key={c} variant="tint">{c}</Badge>
           ))}
         </div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Added by {recipe.addedBy} on {formatDate(recipe.createdAt)}
+        {domain && (
+          // A sibling of the title link, above its overlay, so tapping it never opens the detail page.
+          <a
+            href={recipe.link ?? undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="relative z-10 -mt-1 -mb-2 flex w-fit min-h-11 max-w-full items-center gap-1.5 rounded-sm text-sm font-medium text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            </svg>
+            <span className="min-w-0 max-w-56 truncate">{domain}</span>
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <path d="M7 17 17 7M8 7h9v9" />
+            </svg>
+            <span className="sr-only">(opens in a new tab)</span>
+          </a>
+        )}
+        <p className={(domain ? "mt-1" : "mt-2") + " flex items-center gap-1.5 text-sm text-muted-foreground"}>
+          <span>{firstName(recipe.addedBy)} · {shortDate(recipe.createdAt)}</span>
+          {recipe.hasFiles && (
+            <>
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+              </svg>
+              <span className="sr-only">Has files</span>
+            </>
+          )}
         </p>
-        {extras.length > 0 && <p className="mt-1 text-sm text-muted-foreground">{extras.join(' · ')}</p>}
       </Card>
     </li>
   )
@@ -91,7 +121,7 @@ export function RecipeList() {
   }
 
   return (
-    <section className="flex flex-col gap-4" style={{ paddingBottom: 'calc(6.5rem + env(safe-area-inset-bottom))' }}>
+    <section className="flex flex-col gap-4">
       <div className="flex flex-col gap-4">
         {/* No visible label (owner decision): the icon and placeholder say what it does; aria-label names it. */}
         <div className="relative">
@@ -124,8 +154,8 @@ export function RecipeList() {
         </div>
         {/* Time is rarely used, so it sits behind "More filters" (owner decision). The button shows
             when a time filter is on, so a hidden filter is never a surprise. */}
-        {/* -mt-2 against the block's 16px gap: sits 8px under the chip row; the section gap gives 16px before the list. */}
-        <div className="-mt-2">
+        {/* -mt-3 against the block's 16px gap, plus the chip row's 4px bottom padding: 8px under the chips. */}
+        <div className="-mt-3">
           <button
             type="button"
             aria-expanded={moreOpen}
@@ -152,7 +182,7 @@ export function RecipeList() {
         </div>
       </div>
 
-      <div id="recipe-results" aria-live="polite">
+      <div id="recipe-results" aria-live="polite" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))' }}>
         {!current && <p role="status" className="text-muted-foreground">Loading recipes...</p>}
         {current && 'failed' in current && (
           <div className="flex flex-col items-start gap-3">

@@ -64,6 +64,8 @@ export interface RecipeSummary {
   canEdit: boolean
   createdAt: string
   hasLink: boolean
+  /** The stored web link (http or https), or null. Validated server-side on save. */
+  link: string | null
   hasNotes: boolean
   hasFiles: boolean
   /** The signed-in user's own favourite state. */
@@ -71,7 +73,6 @@ export interface RecipeSummary {
 }
 
 export interface RecipeDetail extends RecipeSummary {
-  link: string | null
   notes: string | null
   updatedAt: string
   files: RecipeFile[]

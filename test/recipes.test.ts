@@ -78,6 +78,16 @@ describe('create and read', () => {
     expect(asA[0].addedBy).toBe('Bob')
   })
 
+  it('list summary carries the link, or null when there is none', async () => {
+    const { cookie } = await signIn()
+    const withLink = await makeRecipe(cookie, { title: 'Linked', link: ' https://example.com/r ' })
+    await new Promise((r) => setTimeout(r, 3))
+    const without = await makeRecipe(cookie, { title: 'Plain' })
+    const rows = await list(cookie)
+    expect(rows.find((r) => r.id === withLink.id)).toMatchObject({ hasLink: true, link: 'https://example.com/r' })
+    expect(rows.find((r) => r.id === without.id)).toMatchObject({ hasLink: false, link: null })
+  })
+
   it('ignores a spoofed added-by, user id and created date', async () => {
     const { cookie, userId } = await signIn()
     const res = await create(cookie, {

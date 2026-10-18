@@ -1,12 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { SectionLabel } from '@design-system/components'
 import { formatBytes } from '../lib/recipes'
 import type { RecipeFile } from '../lib/recipes'
-
-const linkClass =
-  'inline-flex min-h-11 items-center text-primary underline [overflow-wrap:anywhere] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring'
-
-const downloadUrl = (url: string) => `${url}?download=1`
+import { FileViewer } from './FileViewer'
+import { FileLinks, ViewButton, downloadUrl, linkClass } from './fileParts'
+import { PdfFile } from './pdf/PdfFile'
 
 function Download({ file, label }: { file: RecipeFile; label?: string }) {
   return (
@@ -17,15 +15,27 @@ function Download({ file, label }: { file: RecipeFile; label?: string }) {
 }
 
 function ImageFile({ file }: { file: RecipeFile }) {
+  const [open, setOpen] = useState(false)
+  const trigger = useRef<HTMLElement | null>(null)
   return (
     <>
-      <img src={file.url} alt={file.name} loading="lazy" className="h-auto max-w-full rounded-lg border border-border" />
-      <div className="flex flex-wrap gap-x-5">
-        <a href={file.url} target="_blank" rel="noopener noreferrer" className={linkClass}>
-          Open full size<span className="sr-only"> ({file.name}, opens in a new tab)</span>
-        </a>
-        <Download file={file} />
-      </div>
+      <ViewButton
+        name={file.name}
+        onOpen={(el) => {
+          trigger.current = el
+          setOpen(true)
+        }}
+      >
+        <img src={file.url} alt={file.name} loading="lazy" className="block h-auto w-full rounded-lg border border-border" />
+      </ViewButton>
+      <FileLinks file={file} />
+      {open && (
+        <FileViewer title={file.name} onClose={() => setOpen(false)} returnFocusTo={trigger}>
+          <div className="flex h-full items-center justify-center">
+            <img src={file.url} alt={file.name} className="h-auto max-h-full max-w-full object-contain" />
+          </div>
+        </FileViewer>
+      )}
     </>
   )
 }
@@ -66,17 +76,6 @@ function HeicFile({ file }: { file: RecipeFile }) {
   )
 }
 
-function PdfFile({ file }: { file: RecipeFile }) {
-  return (
-    <div className="flex flex-wrap gap-x-5">
-      <a href={file.url} target="_blank" rel="noopener noreferrer" className={linkClass}>
-        Open {file.name} ({formatBytes(file.size)})<span className="sr-only"> (PDF, opens in a new tab)</span>
-      </a>
-      <a href={downloadUrl(file.url)} download={file.name} className={linkClass}>Download</a>
-    </div>
-  )
-}
-
 export function RecipeFiles({ files }: { files: RecipeFile[] }) {
   if (files.length === 0) return null
   return (
@@ -85,7 +84,7 @@ export function RecipeFiles({ files }: { files: RecipeFile[] }) {
       <ul className="flex flex-col gap-5">
         {files.map((f) => (
           <li key={f.id} className="flex min-w-0 flex-col gap-1">
-            {f.contentType === 'application/pdf' ? <PdfFile file={f} /> : f.contentType === 'image/heic' ? <HeicFile file={f} /> : <ImageFile file={f} />}
+            {f.contentType === 'application/pdf' ? <PdfFile key={f.url} file={f} /> : f.contentType === 'image/heic' ? <HeicFile file={f} /> : <ImageFile file={f} />}
           </li>
         ))}
       </ul>
