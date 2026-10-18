@@ -80,6 +80,7 @@ export function RecipeList() {
   const [time, setTime] = useState<TimeTag | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [onlyFavourites, setOnlyFavourites] = useState(false)
+  const [addedBy, setAddedBy] = useState<string | null>(null)
   const [moreOpen, setMoreOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [q, setQ] = useState('')
@@ -110,14 +111,24 @@ export function RecipeList() {
   }, [key, time, categories, q, onlyFavourites])
 
   const current = result && result.key === key ? result : null
-  const otherFilters = time !== null || categories.length > 0 || q.trim() !== ''
+  // "Added by" filters in the browser on the first name the list already carries, so it needs no request
+  // and no owner ids or full names leave the server. Two people with the same first name count as one.
+  const shown = current && 'recipes' in current
+    ? addedBy === null ? current.recipes : current.recipes.filter((r) => r.addedBy === addedBy)
+    : null
+  // Names come from the last loaded list (kept while the next one loads, so the chips do not flicker).
+  // The selected name always stays, so it can be cleared even when no current result matches it.
+  const loaded = result && 'recipes' in result ? result.recipes.map((r) => r.addedBy) : []
+  const people = [...new Set([...loaded, ...(addedBy === null ? [] : [addedBy])])].sort((a, b) => a.localeCompare(b))
+  const moreOn = (time !== null ? 1 : 0) + (addedBy !== null ? 1 : 0)
+  const otherFilters = time !== null || categories.length > 0 || q.trim() !== '' || addedBy !== null
   const filtering = otherFilters || onlyFavourites
 
   const statusText =
-    current && 'recipes' in current
-      ? current.recipes.length === 0
+    shown
+      ? shown.length === 0
         ? filtering ? 'No matching recipes' : 'No recipes saved yet'
-        : `${current.recipes.length} ${current.recipes.length === 1 ? 'recipe' : 'recipes'}`
+        : `${shown.length} ${shown.length === 1 ? 'recipe' : 'recipes'}`
       : ''
 
   function toggleCategory(c: Category) {
@@ -126,6 +137,7 @@ export function RecipeList() {
   }
   function clearFilters(clearFavourites = true) {
     setTime(null)
+    setAddedBy(null)
     setCategories(none)
     setSearch('')
     setQ('')
@@ -164,8 +176,8 @@ export function RecipeList() {
             <FilterChip key={c} pressed={categories.includes(c)} onClick={() => toggleCategory(c)}>{c}</FilterChip>
           ))}
         </div>
-        {/* Time is rarely used, so it sits behind "More filters" (owner decision). The button shows
-            when a time filter is on, so a hidden filter is never a surprise. */}
+        {/* Time and "Added by" are rarely used, so they sit behind "More filters" (owner decision). The
+            button counts the ones that are on, so a hidden filter is never a surprise. */}
         {/* -mt-3 against the block's 16px gap, plus the chip row's 4px bottom padding: 8px under the chips. */}
         <div className="-mt-3">
           <button
@@ -175,21 +187,34 @@ export function RecipeList() {
             onClick={() => setMoreOpen((open) => !open)}
             className="inline-flex min-h-11 items-center gap-1.5 rounded-lg text-[15px] font-medium text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            More filters{time !== null ? ' (1 on)' : ''}
+            More filters{moreOn > 0 ? ` (${moreOn} on)` : ''}
             <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={'transition-transform ' + (moreOpen ? 'rotate-180' : '')}>
               <path d="m6 9 6 6 6-6" />
             </svg>
           </button>
           {moreOpen && (
-            <fieldset id="more-filters" className="mt-2 min-w-0">
-              <legend className="mb-1.5"><SectionLabel>How long it takes</SectionLabel></legend>
-              <div className="flex flex-wrap gap-2">
-                <FilterChip pressed={time === null} onClick={() => setTime(null)}>All</FilterChip>
-                {TIME_TAGS.map((t) => (
-                  <FilterChip key={t} pressed={time === t} onClick={() => setTime(t)}>{timeLabel(t)}</FilterChip>
-                ))}
-              </div>
-            </fieldset>
+            <div id="more-filters" className="mt-2 flex flex-col gap-4">
+              <fieldset className="min-w-0">
+                <legend className="mb-1.5"><SectionLabel>How long it takes</SectionLabel></legend>
+                <div className="flex flex-wrap gap-2">
+                  <FilterChip pressed={time === null} onClick={() => setTime(null)}>All</FilterChip>
+                  {TIME_TAGS.map((t) => (
+                    <FilterChip key={t} pressed={time === t} onClick={() => setTime(t)}>{timeLabel(t)}</FilterChip>
+                  ))}
+                </div>
+              </fieldset>
+              {people.length > 0 && (
+                <fieldset className="min-w-0">
+                  <legend className="mb-1.5"><SectionLabel>Added by</SectionLabel></legend>
+                  <div className="flex flex-wrap gap-2">
+                    <FilterChip pressed={addedBy === null} onClick={() => setAddedBy(null)}>All</FilterChip>
+                    {people.map((p) => (
+                      <FilterChip key={p} pressed={addedBy === p} onClick={() => setAddedBy(p)}>{p}</FilterChip>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -205,7 +230,7 @@ export function RecipeList() {
             <Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>Try again</Button>
           </div>
         )}
-        {current && 'recipes' in current && current.recipes.length === 0 && (
+        {shown && shown.length === 0 && (
           onlyFavourites && !otherFilters ? (
             <p className="text-muted-foreground">Tap <span aria-hidden="true">♡</span><span className="sr-only">the heart</span> on a recipe to save it here</p>
           ) : filtering ? (
@@ -220,9 +245,9 @@ export function RecipeList() {
             </div>
           )
         )}
-        {current && 'recipes' in current && current.recipes.length > 0 && (
+        {shown && shown.length > 0 && (
           <ul className="flex flex-col gap-3">
-            {current.recipes.map((r) => (
+            {shown.map((r) => (
               <RecipeCard key={r.id} recipe={r} />
             ))}
           </ul>
