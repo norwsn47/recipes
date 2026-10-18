@@ -12,9 +12,6 @@ Last updated: 18 October 2026
 
 ## To do
 
-### 6. Set a Cloudflare billing/usage alert
-Manual step for you, before launch: R2 can bill beyond the free tier, so set a billing or usage notification in the Cloudflare dashboard.
-
 ### 8. Replace the deprecated test pool
 @cloudflare/vitest-pool-workers is renamed @cloudflare/vitest-plugin (warning on every test run). Do after the first feature (owner decision); also re-check the dev-only npm audit findings then.
 
