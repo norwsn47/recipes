@@ -24,9 +24,6 @@ Upload one 25 MB multi-file recipe on the deployed Free Worker and check CPU tim
 ### 17. Check link title lookup CPU after deploy
 Migration 0004 is applied and pasting a real link works live (18 Oct 2026). Remaining: check CPU time for /api/link-title in the dashboard (10 ms limit).
 
-### 19. Check PDF previews after deploy
-Open a multi-page PDF on the live site: confirm the PDF.js worker (.mjs) loads with a JavaScript MIME type and the console shows no CSP violations. Also check the Cloudflare build Node version is 22.13 or later if Workers Builds is ever used (pdfjs-dist engine requirement).
-
 ---
 
 ## Blocked / waiting on a decision or something external
