@@ -24,9 +24,6 @@ Upload one 25 MB multi-file recipe on the deployed Free Worker and check CPU tim
 ### 17. Check link title lookup CPU after deploy
 Migration 0004 is applied and pasting a real link works live (18 Oct 2026). Remaining: check CPU time for /api/link-title in the dashboard (10 ms limit).
 
-### 20. Check the share preview after deploy
-Manual step: send a /r/ link in WhatsApp (and iMessage if handy) and check title, description and image show; also check /r/ CPU and the 5-minute cache look sane in the dashboard. Crawlers cache previews, so test with a fresh recipe.
-
 ---
 
 ## Blocked / waiting on a decision or something external
