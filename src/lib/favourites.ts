@@ -18,9 +18,11 @@ export interface FavouritesConfig {
   send(id: string, on: boolean): Promise<boolean>
   /** The message to show for a failed call, or null to show none (for example a 401, which re-prompts sign-in). */
   messageFor(err: unknown): string | null
+  /** Called when a failure message is set, or with '' when the store clears it on a new tap or reset. */
+  onNotice?(message: string): void
 }
 
-export function createFavouritesStore({ send, messageFor }: FavouritesConfig) {
+export function createFavouritesStore({ send, messageFor, onNotice }: FavouritesConfig) {
   const entries = new Map<string, Entry>()
   const listeners = new Set<() => void>()
   let tick = 0
@@ -55,6 +57,7 @@ export function createFavouritesStore({ send, messageFor }: FavouritesConfig) {
       e.inflight = false
       e.tick = ++tick
       notice = messageFor(err) ?? ''
+      if (notice) onNotice?.(notice)
     }
     emit()
   }

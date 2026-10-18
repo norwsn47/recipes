@@ -6,7 +6,7 @@ Last updated: 18 October 2026
 > - **Adding:** only something you would actually do - a real bug, a feature idea you asked for, or a manual step you owe. You ask; the project-manager adds genuine follow-ups from a large change; Critical/High review and audit findings are added. Lower findings stay in the chat report until you triage them. Non-blocking review notes are never logged.
 > - **Accepted or won't-fix:** never a to-do. One line in "Known and accepted" below, or a code comment where the issue sits in one place. Reviews and audits read that section and do not re-raise it.
 > - **Entries are one to three lines:** what needs doing, not the history. Nothing here is actioned without explicit instruction.
-> - **IDs are stable and never reused**, even after an item is deleted, so gaps are expected. Next free ID: **#20**.
+> - **IDs are stable and never reused**, even after an item is deleted, so gaps are expected. Next free ID: **#21**.
 
 ---
 
@@ -23,6 +23,9 @@ Upload one 25 MB multi-file recipe on the deployed Free Worker and check CPU tim
 
 ### 17. Check link title lookup CPU after deploy
 Migration 0004 is applied and pasting a real link works live (18 Oct 2026). Remaining: check CPU time for /api/link-title in the dashboard (10 ms limit).
+
+### 20. Check the share preview after deploy
+Manual step: send a /r/ link in WhatsApp (and iMessage if handy) and check title, description and image show; also check /r/ CPU and the 5-minute cache look sane in the dashboard. Crawlers cache previews, so test with a fresh recipe.
 
 ---
 
@@ -46,3 +49,4 @@ Migration 0004 is applied and pasting a real link works live (18 Oct 2026). Rema
 - No visibility notice at sign-in or on the add screen; the only mention is one factual sentence in the settings pop-up ("Everyone who can sign in sees every recipe."), and the app must never claim recipes are private - accepted (18 Oct 2026)
 - Orphaned R2 files can remain if file deletion fails after a recipe delete, or if a write is cut off between the R2 upload and the D1 save; unreachable via the app, not counted by quotas, cleaned by hand - accepted (11 Oct 2026)
 - Link-title lookup cannot detect a public hostname whose DNS points at a private address (DNS rebinding); bounded by Cloudflare's network isolation, sign-in, 10 lookups a minute, default ports only and title-only output from 2xx HTML - accepted (18 Oct 2026)
+- The public share preview /r/:id has no rate limit (one D1 primary-key read per uncached request; ids are unguessable UUIDs) and is cached publicly for 5 minutes, so a renamed or deleted recipe's old title can show in previews for up to 5 minutes - accepted (18 Oct 2026)

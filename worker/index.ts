@@ -1,4 +1,5 @@
 // Worker entry: routing, CSRF, then session auth for everything under /api/ except the public routes.
+// The one other public route is the share preview, GET/HEAD /r/:id (see share-preview.ts).
 import { handleGoogleSignIn, handleMe, handleSignOut } from './auth'
 import { checkCsrf } from './csrf'
 import { getFile } from './files'
@@ -6,6 +7,7 @@ import { handleLinkTitle } from './link-title'
 import { errorResponse, json } from './http'
 import type { AppEnv } from './http'
 import { withSecurityHeaders } from './security-headers'
+import { SHARE_CSP, handleSharePreview, isSharePath } from './share-preview'
 import { clearFavourite, createRecipe, deleteRecipe, getRecipe, listRecipes, setFavourite, updateRecipe } from './recipes'
 import { sessionCookie, validateSession } from './session'
 import type { SessionUser } from './session'
@@ -96,6 +98,11 @@ async function route(request: Request, env: AppEnv): Promise<Response> {
 export default {
   async fetch(request: Request, env: AppEnv): Promise<Response> {
     try {
+      // Public share preview: the only unauthenticated recipe route, handled before CSRF and auth.
+      if (isSharePath(new URL(request.url).pathname)) {
+        const res = await handleSharePreview(request, env)
+        return withSecurityHeaders(res, res.status === 200 ? SHARE_CSP : undefined)
+      }
       return withSecurityHeaders(await route(request, env))
     } catch (err) {
       console.error('Unhandled worker error', err instanceof Error ? err.message : 'unknown')

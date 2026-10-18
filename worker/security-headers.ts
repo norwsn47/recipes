@@ -9,8 +9,10 @@ const API_SECURITY_HEADERS: Record<string, string> = {
   'cross-origin-resource-policy': 'same-origin',
 }
 
-export function withSecurityHeaders(res: Response): Response {
+/** `csp` overrides the policy for the one HTML route (the share preview); everything else is strict API. */
+export function withSecurityHeaders(res: Response, csp?: string): Response {
   const out = new Response(res.body, res)
   for (const [k, v] of Object.entries(API_SECURITY_HEADERS)) out.headers.set(k, v)
+  if (csp) out.headers.set('content-security-policy', csp)
   return out
 }

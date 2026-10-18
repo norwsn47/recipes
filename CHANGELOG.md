@@ -5,6 +5,10 @@ Last updated: 18 October 2026
 
 ---
 
+## 18 October 2026 - Recipe sharing; one signed-out preview route (reverses "no signed-out viewing", narrowly)
+- Reversal (owner decision): `GET /r/:id` works without a session so a shared link shows a preview in WhatsApp and similar apps. It exposes only the recipe's title, categories and time label, then redirects to `/recipes/:id`, which still needs sign-in. Everything else, including sign-in rules and the Google test-user model, is unchanged.
+- Share button on cards and the recipe page: native share sheet, else copy the link ("Link copied"), else show the link to copy by hand. Sign-in screen now says "Only available to members added by the site owner."
+
 ## 18 October 2026 - Graduated to the iteration phase
 - v1 is live at https://recipes.outbuild.uk, one person decides scope, and work now arrives as small requests, with the PRD being updated after the code. So the project moved from the build phase to the iteration phase.
 - Retired: PRD.md and the product-owner agent (removed from the project-manager's agent list and the date hook). The code, tests, CLAUDE.md, BACKLOG.md and this log are now the record.

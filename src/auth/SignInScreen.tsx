@@ -58,6 +58,7 @@ export function SignInScreen({ overlay = false, appName }: { overlay?: boolean; 
         ) : (
           <div ref={buttonRef} className="flex min-h-11 justify-center" />
         )}
+        <p className="text-sm text-muted-foreground">Only available to members added by the site owner.</p>
         {failed && <Banner tone="error" className="w-full">Sign-in failed, please try again.</Banner>}
       </main>
     </div>
