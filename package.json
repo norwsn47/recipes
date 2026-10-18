@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "deploy": "npm run build && wrangler deploy",
+    "og-image": "sh scripts/og-image.sh",
     "cf-typegen": "wrangler types ./worker/worker-configuration.d.ts"
   },
   "dependencies": {

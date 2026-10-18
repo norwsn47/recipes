@@ -7,10 +7,11 @@ import { ApiError, deleteRecipe, getRecipe, timeLabel } from '../lib/recipes'
 import type { RecipeDetail } from '../lib/recipes'
 import { BackLink } from './BackLink'
 import { FavouriteButton } from './FavouriteButton'
-import { FavouriteNotice } from './FavouriteNotice'
+import { Notice } from './Notice'
 import { favourites } from './favouritesStore'
 import { OverflowMenu } from './OverflowMenu'
 import { RecipeFiles } from './RecipeFiles'
+import { ShareButton } from './ShareButton'
 
 type Result = { key: string; recipe: RecipeDetail } | { key: string; error: 'not-found' | 'failed' }
 
@@ -84,9 +85,12 @@ export function RecipeView() {
   return (
     <article className="flex flex-col gap-5 pb-8">
       <div><BackLink /></div>
-      <div className="flex items-center justify-between gap-2">
-        <h2 id="recipe-view-title" className="text-3xl [overflow-wrap:anywhere]">{r.title}</h2>
-        <FavouriteButton recipeId={r.id} favourite={r.favourite} describedBy="recipe-view-title" className="-mr-2" />
+      <div className="flex items-center gap-2">
+        <h2 id="recipe-view-title" className="min-w-0 flex-1 text-3xl [overflow-wrap:anywhere]">{r.title}</h2>
+        <div className="-mr-2 flex shrink-0 items-center">
+          <ShareButton recipe={r} />
+          <FavouriteButton recipeId={r.id} favourite={r.favourite} describedBy="recipe-view-title" />
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2">
         <Badge variant="tint">{timeLabel(r.timeTag)}</Badge>
@@ -134,7 +138,7 @@ export function RecipeView() {
         </div>
       )}
 
-      <FavouriteNotice />
+      <Notice />
 
       <Dialog open={confirming} onClose={closeConfirm} title="Delete this recipe?">
         <p className="mb-5 text-muted-foreground">

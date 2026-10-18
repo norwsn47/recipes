@@ -6,9 +6,10 @@ import { firstName, linkHostname, shortDate } from '../lib/format'
 import { CATEGORIES, TIME_TAGS, listRecipes, timeLabel } from '../lib/recipes'
 import type { Category, RecipeSummary, TimeTag } from '../lib/recipes'
 import { FavouriteButton } from './FavouriteButton'
-import { FavouriteNotice } from './FavouriteNotice'
+import { Notice } from './Notice'
 import { favourites } from './favouritesStore'
 import { FilterChip } from './FilterChip'
+import { ShareButton } from './ShareButton'
 
 const SEARCH_DEBOUNCE_MS = 300
 
@@ -21,9 +22,10 @@ function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
     <li>
       {/* p-4! overrides Card's own p-6 (cn does not merge classes). */}
       <Card className="relative p-4! focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring">
-        {/* The heart is a sibling of the link (never nested in it), above the link's card-sized overlay. */}
-        <FavouriteButton recipeId={recipe.id} favourite={recipe.favourite} describedBy={`recipe-title-${recipe.id}`} className="absolute right-1 top-1 z-10" />
-        <h3 className="pr-12 text-[20px] leading-tight">
+        {/* Share and the heart are siblings of the link (never nested in it), above the link's card-sized overlay. */}
+        <ShareButton recipe={recipe} iconClassName="size-[18px]" onClick={(e) => e.stopPropagation()} className="absolute right-12 top-1 z-10" />
+        <FavouriteButton recipeId={recipe.id} favourite={recipe.favourite} describedBy={`recipe-title-${recipe.id}`} iconClassName="size-[18px]" className="absolute right-1 top-1 z-10" />
+        <h3 className="pr-[6.25rem] text-[20px] leading-tight">
           <Link id={`recipe-title-${recipe.id}`} to={`/recipes/${recipe.id}`} className="outline-none after:absolute after:inset-0">
             {recipe.title}
           </Link>
@@ -214,7 +216,7 @@ export function RecipeList() {
         )}
       </div>
 
-      <FavouriteNotice />
+      <Notice />
 
       {/* Floating add button. Right edge: the content column's right edge (36rem = max-w-xl) on wide screens, the viewport edge on phones. */}
       <Link
