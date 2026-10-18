@@ -5,6 +5,9 @@ import { useAuth } from '../auth/AuthContext'
 import { ApiError, deleteRecipe, formatDate, getRecipe, timeLabel } from '../lib/recipes'
 import type { RecipeDetail } from '../lib/recipes'
 import { BackLink } from './BackLink'
+import { FavouriteButton } from './FavouriteButton'
+import { FavouriteNotice } from './FavouriteNotice'
+import { favourites } from './favouritesStore'
 import { RecipeFiles } from './RecipeFiles'
 
 type Result = { key: string; recipe: RecipeDetail } | { key: string; error: 'not-found' | 'failed' }
@@ -22,8 +25,12 @@ export function RecipeView() {
   const key = `${id}|${attempt}|${status === 'signed-in'}`
   useEffect(() => {
     const controller = new AbortController()
+    const started = favourites.mark()
     getRecipe(id, controller.signal).then(
-      (recipe) => setResult({ key, recipe }),
+      (recipe) => {
+        favourites.seed(recipe.id, started)
+        setResult({ key, recipe })
+      },
       (err: unknown) => {
         if (controller.signal.aborted) return
         setResult({ key, error: err instanceof ApiError && err.status === 404 ? 'not-found' : 'failed' })
@@ -75,7 +82,10 @@ export function RecipeView() {
   return (
     <article className="flex flex-col gap-5 pb-8">
       <div><BackLink /></div>
-      <h2 className="text-3xl [overflow-wrap:anywhere]">{r.title}</h2>
+      <div className="flex items-start justify-between gap-2">
+        <h2 id="recipe-view-title" className="text-3xl [overflow-wrap:anywhere]">{r.title}</h2>
+        <FavouriteButton recipeId={r.id} favourite={r.favourite} describedBy="recipe-view-title" className="-mr-2" />
+      </div>
       <div className="flex flex-wrap gap-1.5">
         <Badge variant="highlight">{timeLabel(r.timeTag)}</Badge>
         {r.categories.map((c) => (
@@ -121,6 +131,8 @@ export function RecipeView() {
           <Button variant="secondary" onClick={() => setConfirming(true)}>Delete recipe</Button>
         </div>
       )}
+
+      <FavouriteNotice />
 
       <Dialog open={confirming} onClose={closeConfirm} title="Delete this recipe?">
         <p className="mb-5 text-muted-foreground">

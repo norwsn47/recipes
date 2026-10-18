@@ -5,6 +5,9 @@ import { APP_NAME } from '../auth/AppShell'
 import { useAuth } from '../auth/AuthContext'
 import { CATEGORIES, TIME_TAGS, formatDate, listRecipes, timeLabel } from '../lib/recipes'
 import type { Category, RecipeSummary, TimeTag } from '../lib/recipes'
+import { FavouriteButton } from './FavouriteButton'
+import { FavouriteNotice } from './FavouriteNotice'
+import { favourites } from './favouritesStore'
 import { FilterChip } from './FilterChip'
 
 const SEARCH_DEBOUNCE_MS = 300
@@ -16,8 +19,10 @@ function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
   return (
     <li>
       <Card className="relative p-4 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring">
-        <h3 className="text-xl">
-          <Link to={`/recipes/${recipe.id}`} className="outline-none after:absolute after:inset-0">
+        {/* The heart is a sibling of the link (never nested in it), above the link's card-sized overlay. */}
+        <FavouriteButton recipeId={recipe.id} favourite={recipe.favourite} describedBy={`recipe-title-${recipe.id}`} className="absolute right-1 top-1 z-10" />
+        <h3 className="pr-12 text-xl">
+          <Link id={`recipe-title-${recipe.id}`} to={`/recipes/${recipe.id}`} className="outline-none after:absolute after:inset-0">
             {recipe.title}
           </Link>
         </h3>
@@ -40,6 +45,7 @@ export function RecipeList() {
   const { status } = useAuth()
   const [time, setTime] = useState<TimeTag | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
+  const [onlyFavourites, setOnlyFavourites] = useState(false)
   const [search, setSearch] = useState('')
   const [q, setQ] = useState('')
   const [attempt, setAttempt] = useState(0)
@@ -51,30 +57,37 @@ export function RecipeList() {
   }, [search])
 
   // Refetch after signing back in (status returns to signed-in), after a retry, or when a filter changes.
-  const key = JSON.stringify([time, categories, q.trim(), attempt, status === 'signed-in'])
+  const key = JSON.stringify([time, categories, q.trim(), onlyFavourites, attempt, status === 'signed-in'])
   useEffect(() => {
     const controller = new AbortController()
-    listRecipes({ time, categories, q }, controller.signal).then(
-      (recipes) => setResult({ key, recipes }),
+    const started = favourites.mark()
+    listRecipes({ time, categories, q, favourites: onlyFavourites }, controller.signal).then(
+      (recipes) => {
+        // Fresh server values win over any favourite change that settled before this fetch began.
+        recipes.forEach((r) => favourites.seed(r.id, started))
+        setResult({ key, recipes })
+      },
       () => {
         if (!controller.signal.aborted) setResult({ key, failed: true })
       },
     )
     return () => controller.abort()
-  }, [key, time, categories, q])
+  }, [key, time, categories, q, onlyFavourites])
 
   const current = result && result.key === key ? result : null
-  const filtering = time !== null || categories.length > 0 || q.trim() !== ''
+  const otherFilters = time !== null || categories.length > 0 || q.trim() !== ''
+  const filtering = otherFilters || onlyFavourites
 
   function toggleCategory(c: Category) {
     // One category at a time (owner decision): tapping another switches, tapping the selected one clears.
     setCategories((prev) => (prev.includes(c) ? [] : [c]))
   }
-  function clearFilters() {
+  function clearFilters(clearFavourites = true) {
     setTime(null)
     setCategories([])
     setSearch('')
     setQ('')
+    if (clearFavourites) setOnlyFavourites(false)
   }
 
   return (
@@ -104,6 +117,7 @@ export function RecipeList() {
           <legend className="mb-1.5"><SectionLabel>Category</SectionLabel></legend>
           {/* One scrolling row (owner decision); bleeds to the screen edge so the cut-off chip hints at more. */}
           <div className="-mx-4 flex gap-2 overflow-x-auto px-4 py-1 [&>*]:shrink-0 [&>*]:whitespace-nowrap">
+            <FilterChip pressed={onlyFavourites} onClick={() => setOnlyFavourites((on) => !on)}>Favourites</FilterChip>
             <FilterChip pressed={categories.length === 0} onClick={() => setCategories([])}>All</FilterChip>
             {CATEGORIES.map((c) => (
               <FilterChip key={c} pressed={categories.includes(c)} onClick={() => toggleCategory(c)}>{c}</FilterChip>
@@ -121,11 +135,22 @@ export function RecipeList() {
           </div>
         )}
         {current && 'recipes' in current && current.recipes.length === 0 && (
-          filtering ? (
+          onlyFavourites && !otherFilters ? (
+            <div className="flex flex-col items-start gap-3">
+              <p className="text-lg font-semibold">No favourites yet</p>
+              <p className="text-muted-foreground">Tap the heart on a recipe to add one.</p>
+            </div>
+          ) : onlyFavourites ? (
+            <div className="flex flex-col items-start gap-3">
+              <p className="text-lg font-semibold">No favourites match</p>
+              <p className="text-muted-foreground">Try a different word, or loosen the time and category choices.</p>
+              <Button variant="secondary" onClick={() => clearFilters(false)}>Show all my favourites</Button>
+            </div>
+          ) : filtering ? (
             <div className="flex flex-col items-start gap-3">
               <p className="text-lg font-semibold">No recipes match</p>
               <p className="text-muted-foreground">Try a different word, or loosen the time and category choices.</p>
-              <Button variant="secondary" onClick={clearFilters}>Clear filters</Button>
+              <Button variant="secondary" onClick={() => clearFilters()}>Clear filters</Button>
             </div>
           ) : (
             <div className="flex flex-col items-start gap-3">
@@ -142,6 +167,8 @@ export function RecipeList() {
           </ul>
         )}
       </div>
+
+      <FavouriteNotice />
 
       <OutbuildMark appName={APP_NAME} className="pt-6" />
 

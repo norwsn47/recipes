@@ -28,13 +28,15 @@ interface RecipeRow {
   added_by: string
   categories: string | null
   has_files: number
+  favourite: number
 }
 
 const SELECT_RECIPE = `
   SELECT r.id, r.user_id, r.title, r.time_tag, r.link, r.notes, r.created_at, r.updated_at,
          u.name AS added_by,
          (SELECT group_concat(category) FROM recipe_categories WHERE recipe_id = r.id) AS categories,
-         EXISTS (SELECT 1 FROM recipe_files WHERE recipe_id = r.id) AS has_files
+         EXISTS (SELECT 1 FROM recipe_files WHERE recipe_id = r.id) AS has_files,
+         EXISTS (SELECT 1 FROM favourites fv WHERE fv.recipe_id = r.id AND fv.user_id = ?) AS favourite
   FROM recipes r JOIN users u ON u.id = r.user_id`
 
 function summary(row: RecipeRow, user: SessionUser) {
@@ -50,6 +52,7 @@ function summary(row: RecipeRow, user: SessionUser) {
     hasLink: row.link !== null,
     hasNotes: row.notes !== null,
     hasFiles: row.has_files === 1,
+    favourite: row.favourite === 1, // the signed-in user's own state only
   }
 }
 
@@ -159,8 +162,9 @@ const readRequest = (request: Request): Promise<{ body: unknown; files: File[] }
     ? readMultipart(request)
     : readJson(request).then((r) => (r instanceof Response ? r : { body: r.body, files: [] }))
 
-async function fetchRecipe(env: AppEnv, id: string): Promise<RecipeRow | null> {
-  return env.DB.prepare(`${SELECT_RECIPE} WHERE r.id = ?`).bind(id).first<RecipeRow>()
+// The first bind is always the session user id (for the favourite flag in SELECT_RECIPE).
+async function fetchRecipe(env: AppEnv, userId: string, id: string): Promise<RecipeRow | null> {
+  return env.DB.prepare(`${SELECT_RECIPE} WHERE r.id = ?`).bind(userId, id).first<RecipeRow>()
 }
 
 async function loadFiles(env: AppEnv, recipeId: string): Promise<FileRow[]> {
@@ -172,15 +176,15 @@ async function loadFiles(env: AppEnv, recipeId: string): Promise<FileRow[]> {
 
 /** The recipe as the client sees it (with its files), or null if it is gone. */
 async function recipeView(env: AppEnv, user: SessionUser, id: string) {
-  const [row, files] = await Promise.all([fetchRecipe(env, id), loadFiles(env, id)])
+  const [row, files] = await Promise.all([fetchRecipe(env, user.id, id), loadFiles(env, id)])
   return row ? detail(row, user, files) : null
 }
 
-/** GET /api/recipes?time=&categories=&q= */
+/** GET /api/recipes?time=&categories=&q=&favourites=1 */
 export async function listRecipes(request: Request, env: AppEnv, user: SessionUser): Promise<Response> {
   const params = new URL(request.url).searchParams
   const where: string[] = []
-  const binds: unknown[] = []
+  const binds: unknown[] = [user.id] // first: the favourite flag in SELECT_RECIPE
 
   const time = params.get('time')
   if (time !== null && time !== '') {
@@ -200,6 +204,12 @@ export async function listRecipes(request: Request, env: AppEnv, user: SessionUs
       `EXISTS (SELECT 1 FROM recipe_categories c WHERE c.recipe_id = r.id AND c.category IN (${unique.map(() => '?').join(',')}))`,
     )
     binds.push(...unique)
+  }
+
+  // favourites=1 keeps only the session user's own favourites. Any other value is no filter.
+  if (params.get('favourites') === '1') {
+    where.push('EXISTS (SELECT 1 FROM favourites f2 WHERE f2.recipe_id = r.id AND f2.user_id = ?)')
+    binds.push(user.id)
   }
 
   const q = (params.get('q') ?? '').trim().slice(0, MAX_SEARCH_LENGTH).toLowerCase()
@@ -290,7 +300,7 @@ export async function createRecipe(request: Request, env: AppEnv, user: SessionU
 async function loadOwned(
   env: AppEnv, user: SessionUser, id: string,
 ): Promise<{ row: RecipeRow } | Response> {
-  const row = await fetchRecipe(env, id)
+  const row = await fetchRecipe(env, user.id, id)
   if (!row) return errorResponse(404, 'not_found', 'Recipe not found')
   if (row.user_id !== user.id) return errorResponse(403, 'forbidden', 'You can only change recipes you added.')
   return { row }
@@ -382,4 +392,34 @@ export async function deleteRecipe(env: AppEnv, user: SessionUser, id: string): 
   // Record first, files second. If R2 fails the user still sees success and the failure is logged.
   if (res.meta.changes > 0) await deleteObjects(env, keys, 'recipe deleted')
   return json({ ok: true })
+}
+
+const favouriteState = (favourite: boolean): Response => json({ favourite })
+
+/**
+ * PUT /api/recipes/:id/favourite. Idempotent. Any signed-in user may favourite any recipe. The
+ * insert is guarded on the recipe still existing, so a delete racing this call gives a 404 and
+ * never a foreign key error. Touches only the favourites table (not the recipe row or any cap).
+ */
+export async function setFavourite(env: AppEnv, user: SessionUser, id: string): Promise<Response> {
+  if (!(await takeWriteToken(env, user.id))) return rateLimited()
+  const res = await env.DB.prepare(
+    `INSERT OR IGNORE INTO favourites (user_id, recipe_id, created_at)
+     SELECT ?1, ?2, ?3 WHERE EXISTS (SELECT 1 FROM recipes WHERE id = ?2)`,
+  ).bind(user.id, id, Date.now()).run()
+  if (res.meta.changes === 0) {
+    // Either already a favourite (a no-op) or the recipe does not exist.
+    const exists = await env.DB.prepare('SELECT 1 AS x FROM recipes WHERE id = ?').bind(id).first()
+    if (!exists) return errorResponse(404, 'not_found', 'Recipe not found')
+  }
+  return favouriteState(true)
+}
+
+/** DELETE /api/recipes/:id/favourite. Idempotent: un-favouriting a non-favourite is a 200 no-op. */
+export async function clearFavourite(env: AppEnv, user: SessionUser, id: string): Promise<Response> {
+  if (!(await takeWriteToken(env, user.id))) return rateLimited()
+  const exists = await env.DB.prepare('SELECT 1 AS x FROM recipes WHERE id = ?').bind(id).first()
+  if (!exists) return errorResponse(404, 'not_found', 'Recipe not found')
+  await env.DB.prepare('DELETE FROM favourites WHERE user_id = ? AND recipe_id = ?').bind(user.id, id).run()
+  return favouriteState(false)
 }
