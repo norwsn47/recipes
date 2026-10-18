@@ -84,7 +84,6 @@ export function RecipeView() {
   const r = current.recipe
   return (
     <article className="flex flex-col gap-5 pb-8">
-      <div><BackLink /></div>
       <div className="flex items-center gap-2">
         <h2 id="recipe-view-title" className="min-w-0 flex-1 text-3xl [overflow-wrap:anywhere]">{r.title}</h2>
         <div className="-mr-2 flex shrink-0 items-center">
