@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Badge, Banner, Button, Card, Input, OutbuildMark, SectionLabel } from '@design-system/components'
 import { APP_NAME } from '../auth/AppShell'
 import { useAuth } from '../auth/AuthContext'
-import { CATEGORIES, TIME_TAGS, formatDate, listRecipes } from '../lib/recipes'
+import { CATEGORIES, TIME_TAGS, formatDate, listRecipes, timeLabel } from '../lib/recipes'
 import type { Category, RecipeSummary, TimeTag } from '../lib/recipes'
 import { FilterChip } from './FilterChip'
 
@@ -22,7 +22,7 @@ function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
           </Link>
         </h3>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <Badge variant="highlight">{recipe.timeTag}</Badge>
+          <Badge variant="highlight">{timeLabel(recipe.timeTag)}</Badge>
           {recipe.categories.map((c) => (
             <Badge key={c} variant="tint">{c}</Badge>
           ))}
@@ -67,7 +67,8 @@ export function RecipeList() {
   const filtering = time !== null || categories.length > 0 || q.trim() !== ''
 
   function toggleCategory(c: Category) {
-    setCategories((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]))
+    // One category at a time (owner decision): tapping another switches, tapping the selected one clears.
+    setCategories((prev) => (prev.includes(c) ? [] : [c]))
   }
   function clearFilters() {
     setTime(null)
@@ -95,13 +96,14 @@ export function RecipeList() {
           <div className="flex flex-wrap gap-2">
             <FilterChip pressed={time === null} onClick={() => setTime(null)}>All</FilterChip>
             {TIME_TAGS.map((t) => (
-              <FilterChip key={t} pressed={time === t} onClick={() => setTime(t)}>{t}</FilterChip>
+              <FilterChip key={t} pressed={time === t} onClick={() => setTime(t)}>{timeLabel(t)}</FilterChip>
             ))}
           </div>
         </fieldset>
         <fieldset className="min-w-0">
-          <legend className="mb-1.5"><SectionLabel>Category (pick as many as you like)</SectionLabel></legend>
-          <div className="flex flex-wrap gap-2">
+          <legend className="mb-1.5"><SectionLabel>Category</SectionLabel></legend>
+          {/* One scrolling row (owner decision); bleeds to the screen edge so the cut-off chip hints at more. */}
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 py-1 [&>*]:shrink-0 [&>*]:whitespace-nowrap">
             <FilterChip pressed={categories.length === 0} onClick={() => setCategories([])}>All</FilterChip>
             {CATEGORIES.map((c) => (
               <FilterChip key={c} pressed={categories.includes(c)} onClick={() => toggleCategory(c)}>{c}</FilterChip>

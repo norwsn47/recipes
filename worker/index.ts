@@ -2,6 +2,7 @@
 import { handleGoogleSignIn, handleMe, handleSignOut } from './auth'
 import { checkCsrf } from './csrf'
 import { getFile } from './files'
+import { handleLinkTitle } from './link-title'
 import { errorResponse, json } from './http'
 import type { AppEnv } from './http'
 import { withSecurityHeaders } from './security-headers'
@@ -17,6 +18,7 @@ const routes: Record<string, Handler> = {
   'POST /api/auth/signout': (req, env) => handleSignOut(req, env),
   'GET /api/recipes': (req, env, user) => listRecipes(req, env, user),
   'POST /api/recipes': (req, env, user) => createRecipe(req, env, user),
+  'POST /api/link-title': (req, env, user) => handleLinkTitle(req, env, user),
 }
 
 // Routes with one path parameter, /api/recipes/:id. The id is a bound query parameter only.

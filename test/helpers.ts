@@ -100,5 +100,5 @@ export async function resetBucket(): Promise<void> {
 
 export async function resetDb(): Promise<void> {
   await resetBucket()
-  await baseEnv.DB.batch([baseEnv.DB.prepare('DELETE FROM recipes'), baseEnv.DB.prepare('DELETE FROM write_rate_limits'), baseEnv.DB.prepare('DELETE FROM sessions'), baseEnv.DB.prepare('DELETE FROM users')])
+  await baseEnv.DB.batch([baseEnv.DB.prepare('DELETE FROM recipes'), baseEnv.DB.prepare('DELETE FROM write_rate_limits'), baseEnv.DB.prepare('DELETE FROM link_title_rate_limits'), baseEnv.DB.prepare('DELETE FROM sessions'), baseEnv.DB.prepare('DELETE FROM users')])
 }

@@ -1,9 +1,18 @@
 # CHANGELOG.md
-Last updated: 11 October 2026
+Last updated: 18 October 2026
 > A record of decisions, reversals and notable behaviour changes, newest first. Git history is the full record of everything else, so most changes need no entry here.
 > Whenever you add an entry, update the "Last updated:" date above.
 
 ---
+
+## 18 October 2026 - Category filter is one at a time; header and settings
+- Reversal (owner decision): the list's category filter selects one category at a time (tap another to switch, tap again for All), in a single sideways-scrolling row. Recipes can still have several categories.
+- Header shows the app name on the left and a settings icon on the right; Sign out moved into a settings pop-up with a short description of the app.
+
+## 11 October 2026 - Quick-add flow; link title lookup (reverses "link scraping out of scope", title only)
+- Reversal (owner decision): the add screen now starts with "Paste a link" or "Add photo or file", and a pasted link gets a suggested recipe name. The server fetches the page once and reads only the title (og:title, then a small JSON-LD Recipe name, then the page title), as plain text of at most 100 characters. Nothing else is read, and nothing is stored, cached or logged. Importing ingredients, method, images or descriptions stays out of scope.
+- The lookup is an authenticated, CSRF-protected endpoint with its own limit of about 10 per minute per user, http/https and default ports only, private and reserved hosts refused, at most 3 redirects, about 4 seconds, and 64 KB read. Failures leave the name guessed from the link's last path segment, with no error shown.
+- Time tags are shown as "< 30 mins", "1 hr" and "1 hr +" everywhere; the stored values are unchanged. Categories and the time tag on add and edit are toggle chips. Notes sit behind "Add notes".
 
 ## 11 October 2026 - Sign-in limited to Google test users; app live
 - Reversal (owner decision): the Google app stays in Testing mode permanently, so only test users the owner adds in Google Cloud Console can sign in. This replaces "any Google account may sign in". No Google publishing, Branding page or privacy policy needed.

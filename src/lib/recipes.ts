@@ -5,6 +5,14 @@ import { apiFetch } from './api'
 export const TIME_TAGS = ['Less than 30 mins', 'Around 1 hr', 'Extensive prep'] as const
 export type TimeTag = (typeof TIME_TAGS)[number]
 
+/** What people see for each time tag. The stored and API values above never change. */
+export const TIME_LABELS: Record<TimeTag, string> = {
+  'Less than 30 mins': '< 30 mins',
+  'Around 1 hr': '1 hr',
+  'Extensive prep': '1 hr +',
+}
+export const timeLabel = (tag: TimeTag): string => TIME_LABELS[tag]
+
 export const CATEGORIES = ['Breakfast', 'Chicken', 'Fish', 'Pork', 'Beef', 'Lamb', 'Dessert', 'Baking', 'Other'] as const
 export type Category = (typeof CATEGORIES)[number]
 
@@ -118,6 +126,32 @@ export async function listRecipes(filters: ListFilters, signal?: AbortSignal): P
   return (await readJson<{ recipes: RecipeSummary[] }>(res)).recipes
 }
 
+/**
+ * Asks the server for a page title to suggest as the name. Never throws: any failure (bad link, rate limit,
+ * network, signed out, aborted) returns null so the caller keeps its own guess and may try again.
+ * A 200 returns the title, which can legitimately be ''. A 401 does not open the sign-in overlay
+ * for this background call.
+ */
+export async function fetchLinkTitle(url: string, signal?: AbortSignal): Promise<string | null> {
+  try {
+    const res = await apiFetch('/api/link-title', { method: 'POST', json: { url }, signal, handleUnauthorised: true })
+    if (!res.ok) return null
+    const data = (await res.json()) as { title?: unknown }
+    return typeof data.title === 'string' ? data.title.slice(0, MAX_TITLE) : ''
+  } catch {
+    return null
+  }
+}
+
+export function isWebLink(value: string): boolean {
+  try {
+    const u = new URL(value)
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export async function getRecipe(id: string, signal?: AbortSignal): Promise<RecipeDetail> {
   const res = await apiFetch(`/api/recipes/${encodeURIComponent(id)}`, { signal })
   return (await readJson<{ recipe: RecipeDetail }>(res)).recipe
@@ -152,15 +186,6 @@ export async function deleteRecipe(id: string): Promise<void> {
   if (!res.ok) throw await toApiError(res)
 }
 
-function isWebLink(value: string): boolean {
-  try {
-    const u = new URL(value)
-    return u.protocol === 'http:' || u.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
-
 /**
  * Mirrors the server rules. `fileCount` is the number of files the recipe will have after saving (kept plus new).
  */
@@ -169,8 +194,8 @@ export function validateRecipe(input: RecipeInput, fileCount = 0): FieldErrors {
   const title = input.title.trim()
   const link = input.link.trim()
   const notes = input.notes.trim()
-  if (!title) errors.title = 'Give the recipe a title.'
-  else if (title.length > MAX_TITLE) errors.title = `Keep the title to ${MAX_TITLE} characters or fewer.`
+  if (!title) errors.title = 'Give the recipe a name.'
+  else if (title.length > MAX_TITLE) errors.title = `Keep the name to ${MAX_TITLE} characters or fewer.`
   if (!input.timeTag) errors.timeTag = 'Choose how long it takes.'
   if (input.categories.length === 0) errors.categories = 'Choose at least one category.'
   if (link.length > MAX_LINK) errors.link = `Keep the link to ${MAX_LINK.toLocaleString('en-GB')} characters or fewer.`

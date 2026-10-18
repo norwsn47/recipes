@@ -49,23 +49,41 @@ export const recipeLimitMessage = (max: number): string =>
 
 export const RATE_LIMIT_MESSAGE = 'You are doing that too fast. Wait a minute and try again.'
 
+export const DEFAULT_LINK_TITLE_RATE_PER_MINUTE = 10
+
+export const linkTitleRatePerMinute = (env: AppEnv): number =>
+  positiveInt(env.LINK_TITLE_RATE_PER_MINUTE, DEFAULT_LINK_TITLE_RATE_PER_MINUTE)
+
+// Table names are fixed constants chosen here, never user input (they cannot be bound as parameters).
+type RateTable = 'write_rate_limits' | 'link_title_rate_limits'
+
 /**
- * Fixed-window write rate limit, shared by all isolates because the counter lives in D1.
- * One atomic upsert per write request. When the user is over the limit the WHERE clause makes the
- * statement a no-op (no row returned, no row written), so a flood of rejected requests costs no
- * D1 writes. Returns true if the write may proceed.
+ * Fixed-window rate limit, shared by all isolates because the counter lives in D1.
+ * One atomic upsert per accepted request. When the user is over the limit the WHERE clause makes
+ * the statement a no-op (no row returned, no row written), so a flood of rejected requests costs no
+ * D1 writes. Returns true if the request may proceed.
  */
-export async function takeWriteToken(env: AppEnv, userId: string, now = Date.now()): Promise<boolean> {
+async function takeToken(
+  env: AppEnv, table: RateTable, userId: string, max: number, now: number,
+): Promise<boolean> {
   const cutoff = now - RATE_WINDOW_MS
   const row = await env.DB.prepare(
-    `INSERT INTO write_rate_limits (user_id, window_start, count) VALUES (?1, ?2, 1)
+    `INSERT INTO ${table} (user_id, window_start, count) VALUES (?1, ?2, 1)
      ON CONFLICT(user_id) DO UPDATE SET
        window_start = CASE WHEN window_start <= ?3 THEN ?2 ELSE window_start END,
        count = CASE WHEN window_start <= ?3 THEN 1 ELSE count + 1 END
      WHERE window_start <= ?3 OR count < ?4
      RETURNING count`,
   )
-    .bind(userId, now, cutoff, writeRatePerMinute(env))
+    .bind(userId, now, cutoff, max)
     .first<{ count: number }>()
   return row !== null
 }
+
+/** Write limit (recipe create, edit, delete). */
+export const takeWriteToken = (env: AppEnv, userId: string, now = Date.now()): Promise<boolean> =>
+  takeToken(env, 'write_rate_limits', userId, writeRatePerMinute(env), now)
+
+/** Link-title lookup limit: its own counter, so lookups and writes never spend each other's tokens. */
+export const takeLinkTitleToken = (env: AppEnv, userId: string, now = Date.now()): Promise<boolean> =>
+  takeToken(env, 'link_title_rate_limits', userId, linkTitleRatePerMinute(env), now)

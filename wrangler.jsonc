@@ -20,7 +20,8 @@
     // "MAX_TOTAL_STORAGE_BYTES": "5368709120",
     // "MAX_USER_STORAGE_BYTES": "104857600",
     // "MAX_USER_RECIPES": "50",
-    // "WRITE_RATE_PER_MINUTE": "20"
+    // "WRITE_RATE_PER_MINUTE": "20",
+    // "LINK_TITLE_RATE_PER_MINUTE": "10"
   },
 
   // D1 database created 11 October 2026 (region WEUR). The id is not a secret.

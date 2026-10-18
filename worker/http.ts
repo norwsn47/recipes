@@ -12,6 +12,8 @@ export interface AppEnv {
   MAX_USER_RECIPES?: string
   /** Per-user write requests per minute (default 20). Optional; parsed defensively. */
   WRITE_RATE_PER_MINUTE?: string
+  /** Per-user link-title lookups per minute (default 10). Optional; parsed defensively. */
+  LINK_TITLE_RATE_PER_MINUTE?: string
 }
 
 export const json = (body: unknown, status = 200, headers?: HeadersInit): Response => {

@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Banner, Button, Field, Input, SectionLabel, Textarea } from '@design-system/components'
+import { Banner, Button, Field, Input, Textarea } from '@design-system/components'
 import {
   ApiError, CATEGORIES, FILE_ACCEPT, MAX_FILES, MAX_LINK, MAX_NOTES, MAX_RECIPE_FILE_BYTES, MAX_TITLE, MB, TIME_TAGS,
-  checkFile, createRecipe, formatBytes, getRecipe, updateRecipe, validateRecipe,
+  checkFile, createRecipe, fetchLinkTitle, formatBytes, getRecipe, isWebLink, timeLabel, updateRecipe, validateRecipe,
 } from '../lib/recipes'
+import { nameFromFileName, nameFromUrl } from '../lib/names'
 import type { Category, FieldErrors, RecipeFile, RecipeInput, TimeTag } from '../lib/recipes'
 import { BackLink } from './BackLink'
+import { FilterChip } from './FilterChip'
 
 const EMPTY: RecipeInput = { title: '', timeTag: '', categories: [], link: '', notes: '' }
 
@@ -20,31 +22,42 @@ const SERVER_MESSAGE_CODES = new Set([
 const FILE_SPECIFIC_CODES = new Set(['file_too_large', 'file_type_not_allowed', 'invalid_upload'])
 
 const fileKey = (f: File) => `${f.name}|${f.size}|${f.lastModified}`
+const LINK_LOOKUP_DELAY_MS = 600
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
-/** A group of native radios or checkboxes with a legend and an error tied to the group. */
-function Group({ legend, error, children }: { legend: string; error?: string; children: React.ReactNode }) {
-  const errorId = `${legend.replace(/\W+/g, '-')}-error`
+/** A group of toggle chips with a legend and an error tied to the group (aria-describedby on the fieldset). */
+function Group({ legend, hint, error, children }: { legend: string; hint?: string; error?: string; children: React.ReactNode }) {
+  const id = useId()
+  const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(' ') || undefined
   return (
     <fieldset
       className="min-w-0 space-y-2 rounded-lg outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       tabIndex={-1}
       data-invalid={error ? 'true' : undefined}
-      aria-describedby={error ? errorId : undefined}
+      aria-describedby={describedBy}
     >
       <legend className="mb-1.5 text-sm font-semibold">{legend}</legend>
-      <div className="flex flex-col gap-1">{children}</div>
-      {error && <p id={errorId} className="text-sm font-semibold text-destructive">{error}</p>}
+      {hint && <p id={`${id}-hint`} className="text-sm text-muted-foreground">{hint}</p>}
+      <div className="flex flex-wrap gap-2">{children}</div>
+      {error && <p id={`${id}-error`} role="alert" className="text-sm font-semibold text-destructive">{error}</p>}
     </fieldset>
   )
 }
 
-function Choice({ type, name, label, checked, onChange }: { type: 'radio' | 'checkbox'; name: string; label: string; checked: boolean; onChange(): void }) {
+const textButtonClass =
+  'inline-flex min-h-11 items-center self-start rounded-lg px-1 font-semibold text-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring'
+
+function BigChoice({ title, hint, onClick, autoFocus }: { title: string; hint: string; onClick(): void; autoFocus?: boolean }) {
   return (
-    <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-1 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring">
-      <input type={type} name={name} checked={checked} onChange={onChange} className="size-5 shrink-0 accent-primary" />
-      <span>{label}</span>
-    </label>
+    <button
+      type="button"
+      onClick={onClick}
+      autoFocus={autoFocus}
+      className="flex min-h-32 w-full flex-col items-start justify-center gap-1 rounded-lg border border-input bg-background px-5 py-4 text-left hover:bg-accent active:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+    >
+      <span className="text-2xl font-bold tracking-tight text-primary">{title}</span>
+      <span className="text-base text-muted-foreground">{hint}</span>
+    </button>
   )
 }
 
@@ -70,6 +83,20 @@ export function RecipeForm() {
   const [newFiles, setNewFiles] = useState<File[]>([])
   const [fileNotes, setFileNotes] = useState<string[]>([])
   const pickerRef = useRef<HTMLInputElement>(null)
+  // Quick-add (new recipes only): the two big choices first, then the rest of the form.
+  const [step, setStep] = useState<'start' | 'form'>('start')
+  const [showLink, setShowLink] = useState(false)
+  const [showFiles, setShowFiles] = useState(false)
+  const [notesOpen, setNotesOpen] = useState(false)
+  // Where focus goes when the step changes (the tapped button unmounts). Applied by autoFocus as the target mounts.
+  const [focusTarget, setFocusTarget] = useState<'link' | 'name' | 'notes' | 'choice' | null>(null)
+  // Name suggestions. nameEdited is set only by the person typing in the name field; suggestions never set it.
+  const nameEdited = useRef(false)
+  const nameSource = useRef<'link' | 'file' | null>(null)
+  const lookupTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const lookupAbort = useRef<AbortController | null>(null)
+  const lookedUp = useRef(new Set<string>())
+  const pasted = useRef(false)
 
   useEffect(() => {
     if (!id) return
@@ -99,6 +126,11 @@ export function RecipeForm() {
     target?.focus()
   }, [focusTick])
 
+  useEffect(() => () => {
+    clearTimeout(lookupTimer.current)
+    lookupAbort.current?.abort()
+  }, [])
+
   const set = useCallback(<K extends keyof RecipeInput>(k: K, v: RecipeInput[K]) => setValues((p) => ({ ...p, [k]: v })), [])
 
   const keptExisting = existingFiles.filter((f) => !removedIds.includes(f.id))
@@ -126,7 +158,60 @@ export function RecipeForm() {
     }
     setNewFiles(accepted)
     setFileNotes(notes)
+    setShowFiles(true)
+    if (!editing && !nameEdited.current && accepted.length > newFiles.length) {
+      const guess = nameFromFileName(accepted[0].name)
+      // A name that came from a link, or one the person typed, is never overwritten by a file.
+      if (guess && values.title.trim() === '' ) {
+        nameSource.current = 'file'
+        setValues((p) => ({ ...p, title: guess }))
+      }
+    }
     setErrors((p) => ({ ...p, content: undefined }))
+  }
+
+  function onLinkChange(raw: string) {
+    set('link', raw)
+    if (editing) return
+    const value = raw.trim()
+    if (!nameEdited.current) {
+      const guess = nameFromUrl(value)
+      if (guess) {
+        nameSource.current = 'link'
+        setValues((p) => ({ ...p, title: guess }))
+      } else if (nameSource.current === 'link') {
+        nameSource.current = null
+        setValues((p) => ({ ...p, title: '' }))
+      }
+    }
+    clearTimeout(lookupTimer.current)
+    lookupAbort.current?.abort()
+    const immediate = pasted.current
+    pasted.current = false
+    if (!value || value.length > MAX_LINK || !isWebLink(value) || lookedUp.current.has(value)) return
+    lookupTimer.current = setTimeout(() => {
+      const controller = new AbortController()
+      lookupAbort.current = controller
+      void fetchLinkTitle(value, controller.signal).then((title) => {
+        // Only a completed response counts as looked up; aborted or failed attempts can be retried.
+        if (controller.signal.aborted || title === null) return
+        lookedUp.current.add(value)
+        if (!title || nameEdited.current) return
+        nameSource.current = 'link'
+        setValues((p) => ({ ...p, title }))
+      })
+    }, immediate ? 0 : LINK_LOOKUP_DELAY_MS)
+  }
+
+  function chooseLink() {
+    setShowLink(true)
+    setFocusTarget('link')
+    setStep('form')
+  }
+
+  function chooseFiles() {
+    // Called straight from the tap so the browser allows the picker to open.
+    pickerRef.current?.click()
   }
 
   function toggleExisting(file: RecipeFile) {
@@ -206,55 +291,121 @@ export function RecipeForm() {
     )
   }
 
+  const linkShown = editing || showLink || values.link !== '' || errors.link !== undefined
+  const filesShown = editing || showFiles || fileCount > 0
+  const notesShown = editing || notesOpen || values.notes !== '' || errors.notes !== undefined
+  const onStart = !editing && step === 'start'
+
+  const picker = (
+    <input
+      ref={pickerRef}
+      type="file"
+      multiple
+      accept={FILE_ACCEPT}
+      className="hidden"
+      tabIndex={-1}
+      aria-hidden="true"
+      onChange={(e) => {
+        const chosen = Array.from(e.target.files ?? [])
+        e.target.value = ''
+        if (chosen.length === 0) return
+        addFiles(chosen)
+        if (step === 'start') setFocusTarget('name')
+        setStep('form')
+      }}
+    />
+  )
+
+  if (onStart) {
+    return (
+      <form ref={formRef} onSubmit={(e) => e.preventDefault()} className="flex flex-col gap-5 pb-8">
+        <div><BackLink>All recipes</BackLink></div>
+        <h2 className="text-3xl">Add a recipe</h2>
+        <p className="text-muted-foreground">Where is it from?</p>
+        <div className="flex flex-col gap-4">
+          <BigChoice title="Paste a link" hint="A recipe from a website" onClick={chooseLink} autoFocus={focusTarget === 'choice'} />
+          <BigChoice title="Add photo or file" hint="Take a photo, or pick a photo or PDF" onClick={chooseFiles} />
+        </div>
+        <button type="button" className={textButtonClass} onClick={() => { setNotesOpen(true); setFocusTarget('notes'); setStep('form') }}>
+          or just add notes
+        </button>
+        {picker}
+      </form>
+    )
+  }
+
   return (
     <form ref={formRef} onSubmit={(e) => void onSubmit(e)} noValidate className="flex flex-col gap-6 pb-8">
-      <div><BackLink to={cancelTo}>{editing ? 'Back to the recipe' : 'All recipes'}</BackLink></div>
+      <div className="flex flex-wrap items-center justify-between gap-x-4">
+        <BackLink to={cancelTo}>{editing ? 'Back to the recipe' : 'All recipes'}</BackLink>
+        {!editing && (
+          <button type="button" className={textButtonClass} onClick={() => { setFocusTarget('choice'); setStep('start') }} disabled={saving}>
+            Back to the choices
+          </button>
+        )}
+      </div>
       <h2 className="text-3xl">{editing ? 'Edit recipe' : 'Add a recipe'}</h2>
 
       {banner && (
         <Banner tone="error" tabIndex={-1} data-banner="">{banner}</Banner>
       )}
 
-      <Field label="Recipe title" error={errors.title}>
-        <Input value={values.title} maxLength={MAX_TITLE} onChange={(e) => set('title', e.target.value)} autoComplete="off" />
+      {errors.content && <p role="alert" data-invalid="true" tabIndex={-1} className="text-sm font-semibold text-destructive outline-none">{errors.content}</p>}
+
+      {linkShown && (
+        <Field label="Link" hint="Starts with http:// or https://" error={errors.link}>
+          <Input
+            type="url"
+            inputMode="url"
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            value={values.link}
+            maxLength={MAX_LINK}
+            autoFocus={focusTarget === 'link'}
+            onPaste={() => { pasted.current = true }}
+            onChange={(e) => onLinkChange(e.target.value)}
+          />
+        </Field>
+      )}
+
+      <Field label="Name" error={errors.title}>
+        <Input
+          value={values.title}
+          maxLength={MAX_TITLE}
+          placeholder="Name this recipe"
+          autoFocus={focusTarget === 'name'}
+          autoComplete="off"
+          onChange={(e) => {
+            nameEdited.current = true
+            set('title', e.target.value)
+          }}
+        />
       </Field>
 
       <Group legend="How long does it take?" error={errors.timeTag}>
         {TIME_TAGS.map((t) => (
-          <Choice key={t} type="radio" name="timeTag" label={t} checked={values.timeTag === t} onChange={() => set('timeTag', t as TimeTag)} />
+          <FilterChip key={t} pressed={values.timeTag === t} onClick={() => set('timeTag', t as TimeTag)}>{timeLabel(t)}</FilterChip>
         ))}
       </Group>
 
-      <Group legend="Categories (choose at least one)" error={errors.categories}>
+      <Group legend="Categories" hint="Choose at least one." error={errors.categories}>
         {CATEGORIES.map((c) => (
-          <Choice
+          <FilterChip
             key={c}
-            type="checkbox"
-            name="categories"
-            label={c}
-            checked={values.categories.includes(c)}
-            onChange={() =>
+            pressed={values.categories.includes(c)}
+            onClick={() =>
               set('categories', values.categories.includes(c) ? values.categories.filter((x) => x !== c) : CATEGORIES.filter((x) => x === c || values.categories.includes(x as Category)))
             }
-          />
+          >
+            {c}
+          </FilterChip>
         ))}
       </Group>
 
-      <div className="flex flex-col gap-4">
-        <div>
-          <SectionLabel>Where is the recipe?</SectionLabel>
-          <p className="mt-1 text-sm text-muted-foreground">Add a link, some notes, a photo or PDF, or any mix.</p>
-        </div>
-        {errors.content && <p role="alert" data-invalid="true" tabIndex={-1} className="text-sm font-semibold text-destructive outline-none">{errors.content}</p>}
-        <Field label="Link (optional)" hint="Starts with http:// or https://" error={errors.link}>
-          <Input type="url" inputMode="url" value={values.link} maxLength={MAX_LINK} onChange={(e) => set('link', e.target.value)} autoComplete="off" />
-        </Field>
-        <Field label="Notes (optional)" hint={`${values.notes.length.toLocaleString('en-GB')} of ${MAX_NOTES.toLocaleString('en-GB')} characters. Plain text only.`} error={errors.notes}>
-          <Textarea rows={6} value={values.notes} maxLength={MAX_NOTES} onChange={(e) => set('notes', e.target.value)} />
-        </Field>
-
+      {filesShown && (
         <div className="space-y-2">
-          <p className="text-sm font-semibold">Photos or PDFs (optional)</p>
+          <p className="text-sm font-semibold">Photos or files</p>
           <p id="files-hint" className="text-sm text-muted-foreground">
             PDF, PNG, JPG or HEIC. Up to {MAX_FILES} files, 10 MB each, 25 MB in total.
             {fileCount > 0 && ` ${plural(fileCount, 'file', 'files')} so far, ${formatBytes(totalBytes)} of ${MAX_RECIPE_FILE_BYTES / MB} MB.`}
@@ -302,24 +453,26 @@ export function RecipeForm() {
               ))}
             </ul>
           )}
-          <input
-            ref={pickerRef}
-            type="file"
-            multiple
-            accept={FILE_ACCEPT}
-            className="hidden"
-            tabIndex={-1}
-            aria-hidden="true"
-            onChange={(e) => {
-              addFiles(Array.from(e.target.files ?? []))
-              e.target.value = ''
-            }}
-          />
-          <Button variant="secondary" onClick={() => pickerRef.current?.click()} disabled={saving} aria-describedby="files-hint">
-            {fileCount > 0 ? 'Add more files' : 'Choose photos or PDFs'}
+          <Button variant="secondary" onClick={chooseFiles} disabled={saving} aria-describedby="files-hint">
+            {fileCount > 0 ? 'Add more files' : 'Add photo or file'}
           </Button>
         </div>
-      </div>
+      )}
+      {picker}
+
+      {notesShown && (
+        <Field label="Notes" hint={`${values.notes.length.toLocaleString('en-GB')} of ${MAX_NOTES.toLocaleString('en-GB')} characters. Plain text only.`} error={errors.notes}>
+          <Textarea rows={6} autoFocus={focusTarget === 'notes'} value={values.notes} maxLength={MAX_NOTES} onChange={(e) => set('notes', e.target.value)} />
+        </Field>
+      )}
+
+      {(!linkShown || !filesShown || !notesShown) && (
+        <div className="flex flex-wrap gap-x-5">
+          {!linkShown && <button type="button" className={textButtonClass} onClick={chooseLink}>Add a link</button>}
+          {!filesShown && <button type="button" className={textButtonClass} onClick={chooseFiles}>Add photo or file</button>}
+          {!notesShown && <button type="button" className={textButtonClass} onClick={() => setNotesOpen(true)}>Add notes</button>}
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         <Button type="submit" size="lg" disabled={saving}>{saving ? (newFiles.length > 0 ? `Uploading ${plural(newFiles.length, 'file', 'files')}...` : 'Saving...') : editing ? 'Save changes' : 'Save recipe'}</Button>

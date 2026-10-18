@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Badge, Banner, Button, Dialog, SectionLabel } from '@design-system/components'
 import { useAuth } from '../auth/AuthContext'
-import { ApiError, deleteRecipe, formatDate, getRecipe } from '../lib/recipes'
+import { ApiError, deleteRecipe, formatDate, getRecipe, timeLabel } from '../lib/recipes'
 import type { RecipeDetail } from '../lib/recipes'
 import { BackLink } from './BackLink'
 import { RecipeFiles } from './RecipeFiles'
@@ -77,7 +77,7 @@ export function RecipeView() {
       <div><BackLink /></div>
       <h2 className="text-3xl [overflow-wrap:anywhere]">{r.title}</h2>
       <div className="flex flex-wrap gap-1.5">
-        <Badge variant="highlight">{r.timeTag}</Badge>
+        <Badge variant="highlight">{timeLabel(r.timeTag)}</Badge>
         {r.categories.map((c) => (
           <Badge key={c} variant="tint">{c}</Badge>
         ))}
