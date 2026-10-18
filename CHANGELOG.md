@@ -5,6 +5,11 @@ Last updated: 18 October 2026
 
 ---
 
+## 18 October 2026 - Graduated to the iteration phase
+- v1 is live at https://recipes.outbuild.uk, one person decides scope, and work now arrives as small requests, with the PRD being updated after the code. So the project moved from the build phase to the iteration phase.
+- Retired: PRD.md and the product-owner agent (removed from the project-manager's agent list and the date hook). The code, tests, CLAUDE.md, BACKLOG.md and this log are now the record.
+- Salvaged into CLAUDE.md "Project-specific rules": an "Out of scope" list and a "Product rules" list (copy rules, single-select category filter, personal favourites, units and limits, Outbuild mark placement, Google Fonts, deploy order, local testing browsers). Accepted risks were already in BACKLOG "Known and accepted"; the visibility-notice line was corrected.
+
 ## 18 October 2026 - Personal favourites; home screen layout; Outbuild mark moved
 - Personal favourites: a heart on each card and recipe page, and a "♡ Favourites" chip at the start of the filter row that combines with category, time and search.
 - Home screen: search (icon, no label), one scrolling chip row (Favourites, divider, All, categories), time behind "More filters", then the list.

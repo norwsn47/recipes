@@ -43,6 +43,6 @@ Migration 0004 is applied and pasting a real link works live (18 Oct 2026). Rema
 - HEIC files preview only in Safari; other browsers get a labelled download - accepted (11 Oct 2026)
 - Moderation is manual in the D1/R2 dashboards; no in-app admin or report button; content of leavers/abusers stays until the owner deletes it on request - accepted (11 Oct 2026)
 - No self-service data deletion; manual on request - accepted (11 Oct 2026)
-- No in-app notice that recipes and uploads are visible to every signed-in user; the app must still never claim they are private - accepted (11 Oct 2026)
+- No visibility notice at sign-in or on the add screen; the only mention is one factual sentence in the settings pop-up ("Everyone who can sign in sees every recipe."), and the app must never claim recipes are private - accepted (18 Oct 2026)
 - Orphaned R2 files can remain if file deletion fails after a recipe delete, or if a write is cut off between the R2 upload and the D1 save; unreachable via the app, not counted by quotas, cleaned by hand - accepted (11 Oct 2026)
 - Link-title lookup cannot detect a public hostname whose DNS points at a private address (DNS rebinding); bounded by Cloudflare's network isolation, sign-in, 10 lookups a minute, default ports only and title-only output from 2xx HTML - accepted (18 Oct 2026)
