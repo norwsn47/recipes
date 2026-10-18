@@ -11,7 +11,8 @@ export function FilterChip({ pressed, onClick, children }: { pressed: boolean; o
         'relative inline-flex min-h-9 items-center rounded-full border px-3 text-sm font-semibold transition-colors ' +
         // Visually 36px, but an invisible 4px band above and below keeps the tap target 44px.
         "after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] " +
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ' +
+        // Ring on keyboard focus only: no outline after a mouse or touch tap, and no grey tap flash on iOS.
+        'outline-none [-webkit-tap-highlight-color:transparent] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring ' +
         (pressed
           ? 'border-primary bg-primary text-primary-foreground'
           : 'border-input bg-background text-foreground hover:bg-accent')

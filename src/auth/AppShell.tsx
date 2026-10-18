@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { Banner, Button, Dialog } from '@design-system/components'
+import { Banner, Button, Dialog, OutbuildMark } from '@design-system/components'
 import { useAuth } from './AuthContext'
 import { SignInScreen } from './SignInScreen'
 import { shellKey } from './shellKey'
@@ -72,6 +72,8 @@ export function AppShell() {
             <Button variant="secondary" onClick={() => { setSettingsOpen(false); void signOut() }}>Sign out</Button>
             <Button variant="ghost" onClick={closeSettings}>Close</Button>
           </div>
+          {/* The Outbuild mark lives here, not as a home-screen footer (owner decision). */}
+          <OutbuildMark appName={APP_NAME} className="mt-5" />
         </Dialog>
         <Outlet />
       </div>
