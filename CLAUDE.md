@@ -1,5 +1,5 @@
 # CLAUDE.md
-Last updated: 11 October 2026
+Last updated: 18 October 2026
 > Ground rules for this project. Read this at the start of every session.
 > Whenever you edit this file, update the "Last updated:" date above to today's date before saving.
 
@@ -44,7 +44,7 @@ If a "small" change turns out to need schema, auth, API or feature work, stop an
 ## Agent setup
 Specialist agents live in `.claude/agents/`:
 - **project-manager** - runs new-project onboarding; plans and orchestrates large changes; keeps `BACKLOG.md` current; stops before localhost review and merge
-- **product-owner** - build phase only. Owns `PRD.md`: creates and pressure-tests it, updates it when decisions change, runs the alignment check when product behaviour changes. `/graduate` removes it along with the PRD
+- **product-owner** - retired by `/graduate` on 18 October 2026 along with `PRD.md` (this project is in the iteration phase). Not available.
 - **outbuild-design-director** - carries the Outbuild design philosophy; changes the design system when you ask (at the step 2.4 review gate or later), or creates one if the folder is emptied
 - **frontend-developer** - builds UI from the design system, always reading `design-system/DESIGN.md` first
 - **backend-developer** - builds APIs, database, auth, integrations
@@ -199,10 +199,31 @@ These apply to all output, from the main session and from every agent. Agent fil
 
 ## Project-specific rules
 <!-- Set during onboarding. Keep each line short. -->
-Phase: build
-Version control: Mode C (Git + GitHub). Repo created by the user; no remote added yet. Branch `chore/onboarding` in use.
+Phase: iteration
+Version control: Mode C (Git + GitHub). Remote: https://github.com/norwsn47/recipes (main auto-deploys to Cloudflare).
 Layout: Mobile-first
 <!-- Add any rules specific to this project below this line -->
+
+**Out of scope** (deliberate; salvaged from the retired PRD, 18 October 2026)
+- No admin role, in-app moderation, report button or in-app user management. Access is the Google test-user list.
+- No Google app publishing, Branding page or privacy policy: the app stays in Testing mode permanently.
+- No public or signed-out viewing, no other sign-in methods, no Cloudflare Access.
+- No self-service account deletion, data export or usage meter.
+- No comments, ratings, shared favourites or favourite counts.
+- No ingredients, method steps, meal planning or custom tags; the category list is fixed in code.
+- From a link, only the page title is read; pasted URLs and fetched pages are never stored or logged.
+- Files are PDF, PNG, JPG and HEIC only, with no HEIC conversion. No native app or offline mode.
+- No PATCH, no exact rate limit, no unsaved-changes warning.
+
+**Product rules** (would look like bugs without the reason)
+- Copy never calls recipes "private"; the only visibility statement is one sentence in the settings pop-up. Time labels show as "< 30 mins", "1 hr", "1 hr +"; the database keeps the longer stored names.
+- Recipes can have several categories, but the list filter is one category at a time. Favourites is a separate chip that combines (AND) with the other filters.
+- Favourites are personal, with no counts. Un-favouriting while the Favourites filter is on keeps the card until the next refetch, so a mis-tap can be undone.
+- "MB" means 1,048,576 bytes. Cap refusals return 409. The ~20 writes/minute limit is a fixed window and approximate on purpose.
+- The "by Outbuild" mark is in the settings pop-up, not on the home screen: a deliberate departure from `design-system/DESIGN.md`.
+- Fonts load from Google Fonts (accepted: visitors' IP addresses go to Google).
+- Deploy: apply new D1 migrations to remote before merging to main. The Google client ID is set both in `wrangler.jsonc` vars and as the Cloudflare build variable `VITE_GOOGLE_CLIENT_ID`. https://recipes.outbuild.uk must stay an authorised origin on the Google client.
+- Local testing is Chrome or Firefox; Safari rejects the Secure cookie on http://localhost.
 
 <!-- VERSION CONTROL MODE - set this during setup -->
 <!-- Uncomment the line that applies:              -->
