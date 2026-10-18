@@ -7,3 +7,6 @@ dist/
 .dev.vars
 .wrangler/
 .claude/settings.local.json
+
+# One-off recipe import (personal PDFs, never committed)
+import/
