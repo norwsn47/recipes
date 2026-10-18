@@ -50,6 +50,7 @@ function summary(row: RecipeRow, user: SessionUser) {
     canEdit: row.user_id === user.id,
     createdAt: new Date(row.created_at).toISOString(),
     hasLink: row.link !== null,
+    link: row.link,
     hasNotes: row.notes !== null,
     hasFiles: row.has_files === 1,
     favourite: row.favourite === 1, // the signed-in user's own state only
@@ -66,7 +67,6 @@ const fileView = (recipeId: string, f: FileRow) => ({
 
 const detail = (row: RecipeRow, user: SessionUser, files: FileRow[]) => ({
   ...summary(row, user),
-  link: row.link,
   notes: row.notes,
   updatedAt: new Date(row.updated_at).toISOString(),
   files: files.map((f) => fileView(row.id, f)),

@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Badge, Banner, Button, Dialog, SectionLabel } from '@design-system/components'
 import { useAuth } from '../auth/AuthContext'
-import { ApiError, deleteRecipe, formatDate, getRecipe, timeLabel } from '../lib/recipes'
+import { firstName, shortDate } from '../lib/format'
+import { ApiError, deleteRecipe, getRecipe, timeLabel } from '../lib/recipes'
 import type { RecipeDetail } from '../lib/recipes'
 import { BackLink } from './BackLink'
 import { FavouriteButton } from './FavouriteButton'
 import { FavouriteNotice } from './FavouriteNotice'
 import { favourites } from './favouritesStore'
+import { OverflowMenu } from './OverflowMenu'
 import { RecipeFiles } from './RecipeFiles'
 
 type Result = { key: string; recipe: RecipeDetail } | { key: string; error: 'not-found' | 'failed' }
@@ -82,17 +84,17 @@ export function RecipeView() {
   return (
     <article className="flex flex-col gap-5 pb-8">
       <div><BackLink /></div>
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-center justify-between gap-2">
         <h2 id="recipe-view-title" className="text-3xl [overflow-wrap:anywhere]">{r.title}</h2>
         <FavouriteButton recipeId={r.id} favourite={r.favourite} describedBy="recipe-view-title" className="-mr-2" />
       </div>
-      <div className="flex flex-wrap gap-1.5">
-        <Badge variant="highlight">{timeLabel(r.timeTag)}</Badge>
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2">
+        <Badge variant="tint">{timeLabel(r.timeTag)}</Badge>
         {r.categories.map((c) => (
           <Badge key={c} variant="tint">{c}</Badge>
         ))}
+        <p className="text-sm text-muted-foreground">{firstName(r.addedBy)} · {shortDate(r.createdAt)}</p>
       </div>
-      <p className="text-sm text-muted-foreground">Added by {r.addedBy} on {formatDate(r.createdAt)}</p>
 
       {r.link && (
         <div className="space-y-1.5">
@@ -121,14 +123,14 @@ export function RecipeView() {
       {actionError && <Banner tone="error">{actionError}</Banner>}
 
       {r.canEdit && (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Link
             to={`/recipes/${r.id}/edit`}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-input px-5 font-semibold text-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             Edit recipe
           </Link>
-          <Button variant="secondary" onClick={() => setConfirming(true)}>Delete recipe</Button>
+          <OverflowMenu actions={[{ label: 'Delete recipe', onSelect: () => setConfirming(true) }]} />
         </div>
       )}
 
