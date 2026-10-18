@@ -46,6 +46,9 @@ export function createWakeLock(env: WakeLockEnv): WakeLockController {
   let pending = false
   let visibleWhilePending = false // a visible event was swallowed by an in-flight request
   let sentinel: Sentinel | null = null
+  // The device let go while the page was still visible (e.g. iPhone Low Power Mode): ask again once;
+  // if it lets go again before the page is hidden, turn the switch off so it never shows On wrongly.
+  let retriedVisibleRelease = false
 
   function drop() {
     const s = sentinel
@@ -81,7 +84,18 @@ export function createWakeLock(env: WakeLockEnv): WakeLockController {
         }
         sentinel = s
         s.addEventListener('release', () => {
-          if (sentinel === s) sentinel = null
+          if (sentinel !== s) return // our own release, or superseded
+          sentinel = null
+          if (disposed || !on || !env.isVisible()) return // hidden: re-requested on the next visible event
+          if (!retriedVisibleRelease) {
+            retriedVisibleRelease = true
+            acquire()
+            return
+          }
+          on = false
+          gen++
+          env.onStateChange(false)
+          env.onError()
         })
       },
       () => {
@@ -103,10 +117,12 @@ export function createWakeLock(env: WakeLockEnv): WakeLockController {
       gen++
       pending = false
       visibleWhilePending = false
+      retriedVisibleRelease = false
       if (next) acquire()
       else drop()
     },
     onVisibilityChange() {
+      if (!env.isVisible()) retriedVisibleRelease = false // a hide/show cycle starts afresh
       if (pending && env.isVisible()) visibleWhilePending = true
       acquire()
     },
