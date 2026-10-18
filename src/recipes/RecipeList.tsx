@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge, Banner, Button, Card, Input, SectionLabel } from '@design-system/components'
 import { useAuth } from '../auth/AuthContext'
-import { firstName, linkHostname, shortDate } from '../lib/format'
+import { linkHostname, shortDate } from '../lib/format'
 import { CATEGORIES, TIME_TAGS, listRecipes, timeLabel } from '../lib/recipes'
 import type { Category, RecipeSummary, TimeTag } from '../lib/recipes'
 import { FavouriteButton } from './FavouriteButton'
@@ -12,6 +12,9 @@ import { FilterChip } from './FilterChip'
 import { ShareButton } from './ShareButton'
 
 const SEARCH_DEBOUNCE_MS = 300
+
+// Functional update that keeps the same array when already empty, so the fetch effect does not re-run.
+const none = (prev: Category[]): Category[] => (prev.length === 0 ? prev : [])
 
 type Result = { key: string; recipes: RecipeSummary[] } | { key: string; failed: true }
 
@@ -57,7 +60,7 @@ function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
           </a>
         )}
         <p className={(domain ? "mt-1" : "mt-2") + " flex items-center gap-1.5 text-sm text-muted-foreground"}>
-          <span>{firstName(recipe.addedBy)} · {shortDate(recipe.createdAt)}</span>
+          <span>{recipe.addedBy} · {shortDate(recipe.createdAt)}</span>
           {recipe.hasFiles && (
             <>
               <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -110,13 +113,20 @@ export function RecipeList() {
   const otherFilters = time !== null || categories.length > 0 || q.trim() !== ''
   const filtering = otherFilters || onlyFavourites
 
+  const statusText =
+    current && 'recipes' in current
+      ? current.recipes.length === 0
+        ? filtering ? 'No matching recipes' : 'No recipes saved yet'
+        : `${current.recipes.length} ${current.recipes.length === 1 ? 'recipe' : 'recipes'}`
+      : ''
+
   function toggleCategory(c: Category) {
     // One category at a time (owner decision): tapping another switches, tapping the selected one clears.
     setCategories((prev) => (prev.includes(c) ? [] : [c]))
   }
   function clearFilters(clearFavourites = true) {
     setTime(null)
-    setCategories([])
+    setCategories(none)
     setSearch('')
     setQ('')
     if (clearFavourites) setOnlyFavourites(false)
@@ -149,7 +159,7 @@ export function RecipeList() {
             <span aria-hidden="true">♡&nbsp;</span>Favourites
           </FilterChip>
           <span aria-hidden="true" className="h-6 w-px bg-input" />
-          <FilterChip pressed={categories.length === 0} onClick={() => setCategories([])}>All</FilterChip>
+          <FilterChip pressed={categories.length === 0} onClick={() => setCategories(none)}>All</FilterChip>
           {CATEGORIES.map((c) => (
             <FilterChip key={c} pressed={categories.includes(c)} onClick={() => toggleCategory(c)}>{c}</FilterChip>
           ))}
@@ -184,8 +194,11 @@ export function RecipeList() {
         </div>
       </div>
 
-      <div id="recipe-results" aria-live="polite" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))' }}>
-        {!current && <p role="status" className="text-muted-foreground">Loading recipes...</p>}
+      <div id="recipe-results" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))' }}>
+        <h2 className="sr-only">Recipes</h2>
+        {/* Announces a short summary once results have loaded; stays empty while loading or on error. */}
+        <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">{statusText}</p>
+        {!current && <p className="text-muted-foreground">Loading recipes...</p>}
         {current && 'failed' in current && (
           <div className="flex flex-col items-start gap-3">
             <Banner tone="error" className="w-full">Could not load the recipes. Check your connection and try again.</Banner>

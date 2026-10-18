@@ -3,7 +3,7 @@
 import { errorResponse } from './http'
 import type { AppEnv } from './http'
 import {
-  MAX_FILE_BYTES, MAX_FILES_PER_RECIPE, MAX_RECIPE_FILE_BYTES, STORAGE_FULL_MESSAGE,
+  MAX_FILE_BYTES, MAX_FILES_PER_RECIPE, MAX_RECIPE_FILE_BYTES, MIB, STORAGE_FULL_MESSAGE,
   maxTotalStorageBytes, maxUserStorageBytes, userStorageMessage,
 } from './limits'
 
@@ -91,12 +91,11 @@ function contentDisposition(kind: 'inline' | 'attachment', name: string): string
 
 // --- Limit checks -----------------------------------------------------------------------------
 
-const MB = 1024 * 1024
 const fileTooLarge = (name: string) =>
-  errorResponse(413, 'file_too_large', `${name} is larger than ${MAX_FILE_BYTES / MB} MB. Choose a smaller file.`)
+  errorResponse(413, 'file_too_large', `${name} is larger than ${MAX_FILE_BYTES / MIB} MB. Choose a smaller file.`)
 export const recipeTooLarge = () =>
   errorResponse(413, 'recipe_files_too_large',
-    `A recipe's files can total ${MAX_RECIPE_FILE_BYTES / MB} MB at most (${MAX_FILE_BYTES / MB} MB each). Remove a file or choose smaller ones.`)
+    `A recipe's files can total ${MAX_RECIPE_FILE_BYTES / MIB} MB at most (${MAX_FILE_BYTES / MIB} MB each). Remove a file or choose smaller ones.`)
 const tooMany = () =>
   errorResponse(400, 'too_many_files', `A recipe can have ${MAX_FILES_PER_RECIPE} files at most.`)
 const badType = (name: string) =>

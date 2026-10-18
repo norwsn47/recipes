@@ -1,3 +1,4 @@
+import { json } from './http'
 import type { AppEnv } from './http'
 
 export const DEFAULT_MAX_USER_RECIPES = 50
@@ -18,7 +19,7 @@ export const writeRatePerMinute = (env: AppEnv): number =>
   positiveInt(env.WRITE_RATE_PER_MINUTE, DEFAULT_WRITE_RATE_PER_MINUTE)
 
 // File rules: product constants (not configuration). "MB" here means 1,048,576 bytes.
-const MIB = 1024 * 1024
+export const MIB = 1024 * 1024
 export const MAX_FILES_PER_RECIPE = 5
 export const MAX_FILE_BYTES = 10 * MIB
 export const MAX_RECIPE_FILE_BYTES = 25 * MIB
@@ -48,6 +49,10 @@ export const recipeLimitMessage = (max: number): string =>
   `You have reached the limit of ${max} recipes. Delete one to add another.`
 
 export const RATE_LIMIT_MESSAGE = 'You are doing that too fast. Wait a minute and try again.'
+
+/** The 429 every rate-limited endpoint returns. */
+export const rateLimitedResponse = (): Response =>
+  json({ error: { code: 'rate_limited', message: RATE_LIMIT_MESSAGE } }, 429, { 'retry-after': '60' })
 
 export const DEFAULT_LINK_TITLE_RATE_PER_MINUTE = 10
 

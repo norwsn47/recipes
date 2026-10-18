@@ -1,5 +1,5 @@
 # Outbuild design system
-Last updated: 19 September 2026
+Last updated: 18 October 2026
 
 A starter template, not a fixed spec. This is the design system every new project starts from: the rules for using `tokens.css` and `components/`. The kit is copied into each project, and from then on the project's copy is edited directly to suit it (colours, type, components, rules). Every UI agent reads this file, so keep it accurate when you change things; there is no separate project `DESIGN.md`.
 
@@ -45,3 +45,4 @@ Where this system departs from the general Outbuild design language on purpose, 
 - **Body text is 17px**, and headings are large, for readability outdoors and a confident, IKEA-like feel.
 - **Two accents beyond the brand green:** the amber highlight and the error rust, each with a defined job.
 - **Light only.** There is no dark mode.
+- **Family Recipes shows the Outbuild mark in the settings pop-up**, not on the home screen (owner decision, 18 October 2026).

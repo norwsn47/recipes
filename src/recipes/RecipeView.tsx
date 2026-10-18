@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Badge, Banner, Button, Dialog, SectionLabel } from '@design-system/components'
 import { useAuth } from '../auth/AuthContext'
-import { firstName, shortDate } from '../lib/format'
+import { shortDate } from '../lib/format'
 import { ApiError, deleteRecipe, getRecipe, timeLabel } from '../lib/recipes'
 import type { RecipeDetail } from '../lib/recipes'
 import { BackLink } from './BackLink'
@@ -96,7 +96,7 @@ export function RecipeView() {
         {r.categories.map((c) => (
           <Badge key={c} variant="tint">{c}</Badge>
         ))}
-        <p className="text-sm text-muted-foreground">{firstName(r.addedBy)} · {shortDate(r.createdAt)}</p>
+        <p className="text-sm text-muted-foreground">{r.addedBy} · {shortDate(r.createdAt)}</p>
       </div>
 
       {r.link && (

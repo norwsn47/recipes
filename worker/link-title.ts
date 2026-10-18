@@ -7,7 +7,7 @@
 // logged (only the outcome class). Every failure degrades to an empty title with a 200.
 import { errorResponse, json } from './http'
 import type { AppEnv } from './http'
-import { RATE_LIMIT_MESSAGE, takeLinkTitleToken } from './limits'
+import { rateLimitedResponse, takeLinkTitleToken } from './limits'
 import { MAX_URL_LENGTH, parseSafeUrl } from './link-url'
 import type { SessionUser } from './session'
 
@@ -336,10 +336,7 @@ export async function handleLinkTitle(request: Request, env: AppEnv, user: Sessi
 
   // 2. Take the rate-limit token before any outbound request.
   if (!(await takeLinkTitleToken(env, user.id))) {
-    return new Response(
-      JSON.stringify({ error: { code: 'rate_limited', message: RATE_LIMIT_MESSAGE } }),
-      { status: 429, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'retry-after': '60' } },
-    )
+    return rateLimitedResponse()
   }
 
   // 3. Look up. Only the outcome class is logged: never the URL or the title.

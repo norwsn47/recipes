@@ -51,7 +51,7 @@ const sendJson = (cookie: string, method: string, path: string, body?: unknown, 
   }, e)
 
 interface FileView { id: string; name: string; contentType: string; size: number; url: string }
-interface Recipe { id: string; hasFiles: boolean; files: FileView[]; ownerId: string }
+interface Recipe { id: string; hasFiles: boolean; files: FileView[] }
 const recipeOf = async (res: Response) => ((await res.json()) as { recipe: Recipe }).recipe
 const errOf = async (res: Response) => ((await res.json()) as { error: { code: string; message: string } }).error
 const count = async (table: string) =>
