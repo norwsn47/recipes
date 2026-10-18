@@ -59,14 +59,12 @@ export interface RecipeSummary {
   title: string
   timeTag: TimeTag
   categories: Category[]
+  /** The author's first name only. */
   addedBy: string
-  ownerId: string
   canEdit: boolean
   createdAt: string
-  hasLink: boolean
   /** The stored web link (http or https), or null. Validated server-side on save. */
   link: string | null
-  hasNotes: boolean
   hasFiles: boolean
   /** The signed-in user's own favourite state. */
   favourite: boolean
@@ -74,7 +72,6 @@ export interface RecipeSummary {
 
 export interface RecipeDetail extends RecipeSummary {
   notes: string | null
-  updatedAt: string
   files: RecipeFile[]
 }
 
@@ -216,9 +213,4 @@ export function validateRecipe(input: RecipeInput, fileCount = 0): FieldErrors {
     errors.content = 'Add a link, some notes or a photo or PDF so there is something to cook from.'
   }
   return errors
-}
-
-export function formatDate(iso: string): string {
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { firstName, linkHostname, shortDate } from '../src/lib/format'
+import { linkHostname, shortDate } from '../src/lib/format'
 
 describe('linkHostname', () => {
   it('gives the domain without www', () => {
@@ -13,16 +13,6 @@ describe('linkHostname', () => {
   it('gives nothing for an invalid URL', () => {
     expect(linkHostname('not a url')).toBeNull()
     expect(linkHostname('')).toBeNull()
-  })
-})
-
-describe('firstName', () => {
-  it('takes the first word', () => {
-    expect(firstName('Will Griffiths')).toBe('Will')
-    expect(firstName('  Sam  ')).toBe('Sam')
-  })
-  it('falls back to the whole value when empty', () => {
-    expect(firstName('')).toBe('')
   })
 })
 

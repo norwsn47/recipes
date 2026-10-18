@@ -4,7 +4,7 @@ import type { FileRow, IncomingFile } from './files'
 import { errorResponse, json } from './http'
 import type { AppEnv } from './http'
 import {
-  MAX_FILES_PER_RECIPE, MAX_MULTIPART_BYTES, RATE_LIMIT_MESSAGE, maxUserRecipes, recipeLimitMessage,
+  MAX_FILES_PER_RECIPE, MAX_MULTIPART_BYTES, maxUserRecipes, rateLimitedResponse, recipeLimitMessage,
   takeWriteToken,
 } from './limits'
 import {
@@ -39,19 +39,19 @@ const SELECT_RECIPE = `
          EXISTS (SELECT 1 FROM favourites fv WHERE fv.recipe_id = r.id AND fv.user_id = ?) AS favourite
   FROM recipes r JOIN users u ON u.id = r.user_id`
 
+/** Same rule as firstName in src/lib/format.ts: the first word, or the whole name if there is none. */
+const firstName = (name: string): string => name.trim().split(/\s+/)[0] || name
+
 function summary(row: RecipeRow, user: SessionUser) {
   return {
     id: row.id,
     title: row.title,
     timeTag: row.time_tag,
     categories: sortCategories((row.categories ?? '').split(',')),
-    addedBy: row.added_by,
-    ownerId: row.user_id,
+    addedBy: firstName(row.added_by), // first name only; the full name and owner id never leave the server
     canEdit: row.user_id === user.id,
     createdAt: new Date(row.created_at).toISOString(),
-    hasLink: row.link !== null,
     link: row.link,
-    hasNotes: row.notes !== null,
     hasFiles: row.has_files === 1,
     favourite: row.favourite === 1, // the signed-in user's own state only
   }
@@ -68,7 +68,6 @@ const fileView = (recipeId: string, f: FileRow) => ({
 const detail = (row: RecipeRow, user: SessionUser, files: FileRow[]) => ({
   ...summary(row, user),
   notes: row.notes,
-  updatedAt: new Date(row.updated_at).toISOString(),
   files: files.map((f) => fileView(row.id, f)),
 })
 
@@ -76,15 +75,6 @@ const validationError = (errors: Record<string, string>): Response =>
   json(
     { error: { code: 'validation_failed', message: Object.values(errors).join(' '), fields: errors } },
     400,
-  )
-
-const rateLimited = (): Response =>
-  new Response(
-    JSON.stringify({ error: { code: 'rate_limited', message: RATE_LIMIT_MESSAGE } }),
-    {
-      status: 429,
-      headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'retry-after': '60' },
-    },
   )
 
 // A body past the limit means the files alone are over 25 MB, so it gets the recipe-total refusal.
@@ -242,7 +232,7 @@ const FILES_CHANGED = () =>
   errorResponse(409, 'conflict', 'Your files changed while saving. Try again.')
 
 export async function createRecipe(request: Request, env: AppEnv, user: SessionUser): Promise<Response> {
-  if (!(await takeWriteToken(env, user.id))) return rateLimited()
+  if (!(await takeWriteToken(env, user.id))) return rateLimitedResponse()
   const parsed = await readRequest(request)
   if (parsed instanceof Response) return parsed
   const v = validateRecipeInput(parsed.body, parsed.files.length)
@@ -324,7 +314,7 @@ function resolveRemovals(body: unknown, existing: FileRow[]): FileRow[] | Respon
 export async function updateRecipe(
   request: Request, env: AppEnv, user: SessionUser, id: string,
 ): Promise<Response> {
-  if (!(await takeWriteToken(env, user.id))) return rateLimited()
+  if (!(await takeWriteToken(env, user.id))) return rateLimitedResponse()
   const owned = await loadOwned(env, user, id)
   if (owned instanceof Response) return owned
   const parsed = await readRequest(request)
@@ -383,7 +373,7 @@ export async function updateRecipe(
 }
 
 export async function deleteRecipe(env: AppEnv, user: SessionUser, id: string): Promise<Response> {
-  if (!(await takeWriteToken(env, user.id))) return rateLimited()
+  if (!(await takeWriteToken(env, user.id))) return rateLimitedResponse()
   const owned = await loadOwned(env, user, id)
   if (owned instanceof Response) return owned
   // Keys are read before the row goes (the file rows cascade away with it).
@@ -402,7 +392,7 @@ const favouriteState = (favourite: boolean): Response => json({ favourite })
  * never a foreign key error. Touches only the favourites table (not the recipe row or any cap).
  */
 export async function setFavourite(env: AppEnv, user: SessionUser, id: string): Promise<Response> {
-  if (!(await takeWriteToken(env, user.id))) return rateLimited()
+  if (!(await takeWriteToken(env, user.id))) return rateLimitedResponse()
   const res = await env.DB.prepare(
     `INSERT OR IGNORE INTO favourites (user_id, recipe_id, created_at)
      SELECT ?1, ?2, ?3 WHERE EXISTS (SELECT 1 FROM recipes WHERE id = ?2)`,
@@ -417,7 +407,7 @@ export async function setFavourite(env: AppEnv, user: SessionUser, id: string): 
 
 /** DELETE /api/recipes/:id/favourite. Idempotent: un-favouriting a non-favourite is a 200 no-op. */
 export async function clearFavourite(env: AppEnv, user: SessionUser, id: string): Promise<Response> {
-  if (!(await takeWriteToken(env, user.id))) return rateLimited()
+  if (!(await takeWriteToken(env, user.id))) return rateLimitedResponse()
   const exists = await env.DB.prepare('SELECT 1 AS x FROM recipes WHERE id = ?').bind(id).first()
   if (!exists) return errorResponse(404, 'not_found', 'Recipe not found')
   await env.DB.prepare('DELETE FROM favourites WHERE user_id = ? AND recipe_id = ?').bind(user.id, id).run()

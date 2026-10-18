@@ -5,6 +5,9 @@ Last updated: 18 October 2026
 
 ---
 
+## 18 October 2026 - API no longer sends full names or user ids
+- Behaviour change (audit fix): recipe list and detail responses now send the author's first name only (in `addedBy`) plus `canEdit`. The full Google display name, `ownerId`, `hasLink`, `hasNotes` and `updatedAt` are no longer sent. The UI already showed only first names.
+
 ## 18 October 2026 - Recipe sharing; one signed-out preview route (reverses "no signed-out viewing", narrowly)
 - Reversal (owner decision): `GET /r/:id` works without a session so a shared link shows a preview in WhatsApp and similar apps. It exposes only the recipe's title, categories and time label, then redirects to `/recipes/:id`, which still needs sign-in. Everything else, including sign-in rules and the Google test-user model, is unchanged.
 - Share button on cards and the recipe page: native share sheet, else copy the link ("Link copied"), else show the link to copy by hand. Sign-in screen now says "Only available to members added by the site owner."

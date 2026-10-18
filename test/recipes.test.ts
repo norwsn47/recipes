@@ -6,8 +6,8 @@ beforeAll(setupGoogleMock)
 beforeEach(resetDb)
 
 interface Recipe {
-  id: string; title: string; timeTag: string; categories: string[]; addedBy: string; ownerId: string
-  canEdit: boolean; createdAt: string; hasLink: boolean; hasNotes: boolean; hasFiles: boolean
+  id: string; title: string; timeTag: string; categories: string[]; addedBy: string
+  canEdit: boolean; createdAt: string; hasFiles: boolean
   link?: string | null; notes?: string | null
 }
 const valid = { title: 'Pasta bake', timeTag: 'Around 1 hr', categories: ['Chicken'], notes: 'Bake it' }
@@ -52,15 +52,21 @@ describe('auth and CSRF', () => {
 
 describe('create and read', () => {
   it('creates, returns 201 with session identity, and appears in list and detail', async () => {
-    const { cookie, userId } = await signIn()
+    const { cookie, userId } = await signIn({ name: 'Cook One Smith' })
     const res = await create(cookie, { ...valid, link: ' https://example.com/r ', categories: ['Fish', 'Chicken'] })
     expect(res.status).toBe(201)
     const { recipe } = (await res.json()) as { recipe: Recipe }
     expect(recipe).toMatchObject({
-      title: 'Pasta bake', timeTag: 'Around 1 hr', categories: ['Chicken', 'Fish'], addedBy: 'Cook One',
-      ownerId: userId, canEdit: true, hasLink: true, hasNotes: true, hasFiles: false,
+      title: 'Pasta bake', timeTag: 'Around 1 hr', categories: ['Chicken', 'Fish'], addedBy: 'Cook',
+      canEdit: true, hasFiles: false,
       link: 'https://example.com/r', notes: 'Bake it',
     })
+    // Privacy: first name only, no owner id, no full name, no unused flags anywhere in the response.
+    const raw = JSON.stringify(recipe)
+    expect(raw).not.toContain('ownerId')
+    expect(raw).not.toContain(userId)
+    expect(raw).not.toContain('Smith')
+    for (const k of ['ownerId', 'hasLink', 'hasNotes', 'updatedAt']) expect(recipe).not.toHaveProperty(k)
     const detail = (await (await send(cookie, 'GET', `/api/recipes/${recipe.id}`)).json()) as { recipe: Recipe }
     expect(detail.recipe.id).toBe(recipe.id)
     expect((await list(cookie)).map((r) => r.id)).toEqual([recipe.id])
@@ -68,7 +74,7 @@ describe('create and read', () => {
 
   it('lists newest first and sets canEdit per viewer', async () => {
     const a = await signIn({ sub: 'a', name: 'Ann' })
-    const b = await signIn({ sub: 'b', name: 'Bob', email: 'b@example.com' })
+    const b = await signIn({ sub: 'b', name: 'Bob Builder', email: 'b@example.com' })
     const first = await makeRecipe(a.cookie, { title: 'First' })
     await new Promise((r) => setTimeout(r, 3))
     const second = await makeRecipe(b.cookie, { title: 'Second' })
@@ -76,6 +82,9 @@ describe('create and read', () => {
     expect(asA.map((r) => r.id)).toEqual([second.id, first.id])
     expect(asA.map((r) => r.canEdit)).toEqual([false, true])
     expect(asA[0].addedBy).toBe('Bob')
+    expect(JSON.stringify(asA)).not.toContain('Builder')
+    expect(JSON.stringify(asA)).not.toContain('ownerId')
+    expect(JSON.stringify(asA)).not.toContain(b.userId)
   })
 
   it('list summary carries the link, or null when there is none', async () => {
@@ -84,18 +93,18 @@ describe('create and read', () => {
     await new Promise((r) => setTimeout(r, 3))
     const without = await makeRecipe(cookie, { title: 'Plain' })
     const rows = await list(cookie)
-    expect(rows.find((r) => r.id === withLink.id)).toMatchObject({ hasLink: true, link: 'https://example.com/r' })
-    expect(rows.find((r) => r.id === without.id)).toMatchObject({ hasLink: false, link: null })
+    expect(rows.find((r) => r.id === withLink.id)).toMatchObject({ link: 'https://example.com/r' })
+    expect(rows.find((r) => r.id === without.id)).toMatchObject({ link: null })
   })
 
   it('ignores a spoofed added-by, user id and created date', async () => {
-    const { cookie, userId } = await signIn()
+    const { cookie } = await signIn()
     const res = await create(cookie, {
       ...valid, addedBy: 'Mallory', user_id: 'x', userId: 'x', ownerId: 'x', id: 'mine', createdAt: '2001-01-01',
     })
     const { recipe } = (await res.json()) as { recipe: Recipe }
-    expect(recipe.addedBy).toBe('Cook One')
-    expect(recipe.ownerId).toBe(userId)
+    expect(recipe.addedBy).toBe('Cook')
+    expect(recipe).not.toHaveProperty('ownerId')
     expect(recipe.id).not.toBe('mine')
     expect(new Date(recipe.createdAt).getFullYear()).toBeGreaterThan(2020)
   })
@@ -203,7 +212,7 @@ describe('edit and delete', () => {
     expect(res.status).toBe(200)
     const { recipe } = (await res.json()) as { recipe: Recipe }
     expect(recipe).toMatchObject({
-      title: 'New', timeTag: 'Extensive prep', categories: ['Dessert'], hasLink: true, hasNotes: false, createdAt: r.createdAt,
+      title: 'New', timeTag: 'Extensive prep', categories: ['Dessert'], link: 'https://example.com', notes: null, createdAt: r.createdAt,
     })
     expect(await rowCount('recipe_categories')).toBe(1)
   })
@@ -221,7 +230,10 @@ describe('edit and delete', () => {
     const a = await signIn({ sub: 'a' })
     const r = await makeRecipe(a.cookie)
     const res = await send(a.cookie, 'PUT', `/api/recipes/${r.id}`, { ...valid, ownerId: 'x', user_id: 'x', addedBy: 'x' })
-    expect(((await res.json()) as { recipe: Recipe }).recipe.ownerId).toBe(a.userId)
+    const { recipe } = (await res.json()) as { recipe: Recipe }
+    expect(recipe.canEdit).toBe(true)
+    expect(recipe.addedBy).toBe('Cook')
+    expect((await send(a.cookie, 'GET', `/api/recipes/${r.id}`).then((x) => x.json()) as { recipe: Recipe }).recipe).toMatchObject({ canEdit: true })
   })
 
   it('non-owner gets 403 on edit and delete and nothing changes; missing is 404', async () => {
