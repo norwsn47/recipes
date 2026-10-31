@@ -93,8 +93,11 @@ export function RecipeView() {
       </div>
       <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2">
         <Badge variant="tint">{timeLabel(r.timeTag)}</Badge>
-        {r.categories.map((c) => (
-          <Badge key={c} variant="tint">{c}</Badge>
+        {r.meals.map((m) => (
+          <Badge key={m} variant="tint">{m}</Badge>
+        ))}
+        {r.foodTypes.map((f) => (
+          <Badge key={f} variant="tint">{f}</Badge>
         ))}
         <p className="text-sm text-muted-foreground">{r.addedBy} · {shortDate(r.createdAt)}</p>
       </div>

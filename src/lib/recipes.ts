@@ -13,8 +13,10 @@ export const TIME_LABELS: Record<TimeTag, string> = {
 }
 export const timeLabel = (tag: TimeTag): string => TIME_LABELS[tag]
 
-export const CATEGORIES = ['Breakfast', 'Chicken', 'Fish', 'Pork', 'Beef', 'Lamb', 'Dessert', 'Baking', 'Other'] as const
-export type Category = (typeof CATEGORIES)[number]
+export const MEALS = ['Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Baking'] as const
+export type Meal = (typeof MEALS)[number]
+export const FOOD_TYPES = ['Chicken', 'Fish', 'Pork', 'Beef', 'Lamb', 'Vegetarian'] as const
+export type FoodType = (typeof FOOD_TYPES)[number]
 
 export const MAX_TITLE = 100
 export const MAX_LINK = 2000
@@ -58,7 +60,8 @@ export interface RecipeSummary {
   id: string
   title: string
   timeTag: TimeTag
-  categories: Category[]
+  meals: Meal[]
+  foodTypes: FoodType[]
   /** The author's first name only. */
   addedBy: string
   canEdit: boolean
@@ -78,12 +81,13 @@ export interface RecipeDetail extends RecipeSummary {
 export interface RecipeInput {
   title: string
   timeTag: TimeTag | ''
-  categories: Category[]
+  meals: Meal[]
+  foodTypes: FoodType[]
   link: string
   notes: string
 }
 
-export type FieldErrors = Partial<Record<'title' | 'timeTag' | 'categories' | 'link' | 'notes' | 'content' | 'body' | 'removeFileIds', string>>
+export type FieldErrors = Partial<Record<'title' | 'timeTag' | 'meals' | 'foodTypes' | 'categories' | 'link' | 'notes' | 'content' | 'body' | 'removeFileIds', string>>
 
 export class ApiError extends Error {
   constructor(
@@ -112,7 +116,10 @@ async function readJson<T>(res: Response): Promise<T> {
 
 export interface ListFilters {
   time: TimeTag | null
-  categories: Category[]
+  /** One meal at a time, or null for all. */
+  meal: Meal | null
+  /** One food type at a time, or null for all. */
+  foodType: FoodType | null
   q: string
   favourites?: boolean
 }
@@ -120,7 +127,8 @@ export interface ListFilters {
 export async function listRecipes(filters: ListFilters, signal?: AbortSignal): Promise<RecipeSummary[]> {
   const params = new URLSearchParams()
   if (filters.time) params.set('time', filters.time)
-  if (filters.categories.length > 0) params.set('categories', filters.categories.join(','))
+  if (filters.meal) params.set('meal', filters.meal)
+  if (filters.foodType) params.set('foodType', filters.foodType)
   if (filters.q.trim()) params.set('q', filters.q.trim())
   if (filters.favourites) params.set('favourites', '1')
   const qs = params.toString()
@@ -166,7 +174,7 @@ export async function getRecipe(id: string, signal?: AbortSignal): Promise<Recip
 }
 
 function body(input: RecipeInput) {
-  return { title: input.title.trim(), timeTag: input.timeTag, categories: input.categories, link: input.link.trim(), notes: input.notes.trim() }
+  return { title: input.title.trim(), timeTag: input.timeTag, meals: input.meals, foodTypes: input.foodTypes, link: input.link.trim(), notes: input.notes.trim() }
 }
 
 /** JSON when there are no new files; multipart (`recipe` text field plus one `files` part each) when there are. */
@@ -205,7 +213,7 @@ export function validateRecipe(input: RecipeInput, fileCount = 0): FieldErrors {
   if (!title) errors.title = 'Give the recipe a name.'
   else if (title.length > MAX_TITLE) errors.title = `Keep the name to ${MAX_TITLE} characters or fewer.`
   if (!input.timeTag) errors.timeTag = 'Choose how long it takes.'
-  if (input.categories.length === 0) errors.categories = 'Choose at least one category.'
+  if (input.meals.length === 0) errors.meals = 'Choose at least one meal.'
   if (link.length > MAX_LINK) errors.link = `Keep the link to ${MAX_LINK.toLocaleString('en-GB')} characters or fewer.`
   else if (link && !isWebLink(link)) errors.link = 'The link needs to be a web address starting with http:// or https://.'
   if (notes.length > MAX_NOTES) errors.notes = `Keep the notes to ${MAX_NOTES.toLocaleString('en-GB')} characters or fewer.`

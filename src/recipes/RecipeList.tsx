@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 import { Badge, Banner, Button, Card, Input, SectionLabel } from '@design-system/components'
 import { useAuth } from '../auth/AuthContext'
 import { linkHostname, shortDate } from '../lib/format'
-import { CATEGORIES, TIME_TAGS, listRecipes, timeLabel } from '../lib/recipes'
-import type { Category, RecipeSummary, TimeTag } from '../lib/recipes'
+import { FOOD_TYPES, MEALS, TIME_TAGS, listRecipes, timeLabel } from '../lib/recipes'
+import type { FoodType, Meal, RecipeSummary, TimeTag } from '../lib/recipes'
 import { FavouriteButton } from './FavouriteButton'
 import { Notice } from './Notice'
 import { favourites } from './favouritesStore'
@@ -12,9 +12,6 @@ import { FilterChip } from './FilterChip'
 import { ShareButton } from './ShareButton'
 
 const SEARCH_DEBOUNCE_MS = 300
-
-// Functional update that keeps the same array when already empty, so the fetch effect does not re-run.
-const none = (prev: Category[]): Category[] => (prev.length === 0 ? prev : [])
 
 type Result = { key: string; recipes: RecipeSummary[] } | { key: string; failed: true }
 
@@ -35,8 +32,11 @@ function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
         </h3>
         <div className="mt-2 flex flex-wrap gap-1.5">
           <Badge variant="tint">{timeLabel(recipe.timeTag)}</Badge>
-          {recipe.categories.map((c) => (
-            <Badge key={c} variant="tint">{c}</Badge>
+          {recipe.meals.map((m) => (
+            <Badge key={m} variant="tint">{m}</Badge>
+          ))}
+          {recipe.foodTypes.map((f) => (
+            <Badge key={f} variant="tint">{f}</Badge>
           ))}
         </div>
         {domain && (
@@ -78,7 +78,8 @@ function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
 export function RecipeList() {
   const { status } = useAuth()
   const [time, setTime] = useState<TimeTag | null>(null)
-  const [categories, setCategories] = useState<Category[]>([])
+  const [meal, setMeal] = useState<Meal | null>(null)
+  const [foodType, setFoodType] = useState<FoodType | null>(null)
   const [onlyFavourites, setOnlyFavourites] = useState(false)
   const [addedBy, setAddedBy] = useState<string | null>(null)
   const [moreOpen, setMoreOpen] = useState(false)
@@ -93,11 +94,11 @@ export function RecipeList() {
   }, [search])
 
   // Refetch after signing back in (status returns to signed-in), after a retry, or when a filter changes.
-  const key = JSON.stringify([time, categories, q.trim(), onlyFavourites, attempt, status === 'signed-in'])
+  const key = JSON.stringify([time, meal, foodType, q.trim(), onlyFavourites, attempt, status === 'signed-in'])
   useEffect(() => {
     const controller = new AbortController()
     const started = favourites.mark()
-    listRecipes({ time, categories, q, favourites: onlyFavourites }, controller.signal).then(
+    listRecipes({ time, meal, foodType, q, favourites: onlyFavourites }, controller.signal).then(
       (recipes) => {
         // Fresh server values win over any favourite change that settled before this fetch began.
         recipes.forEach((r) => favourites.seed(r.id, started))
@@ -108,7 +109,7 @@ export function RecipeList() {
       },
     )
     return () => controller.abort()
-  }, [key, time, categories, q, onlyFavourites])
+  }, [key, time, meal, foodType, q, onlyFavourites])
 
   const current = result && result.key === key ? result : null
   // "Added by" filters in the browser on the first name the list already carries, so it needs no request
@@ -120,8 +121,8 @@ export function RecipeList() {
   // The selected name always stays, so it can be cleared even when no current result matches it.
   const loaded = result && 'recipes' in result ? result.recipes.map((r) => r.addedBy) : []
   const people = [...new Set([...loaded, ...(addedBy === null ? [] : [addedBy])])].sort((a, b) => a.localeCompare(b))
-  const moreOn = (time !== null ? 1 : 0) + (addedBy !== null ? 1 : 0)
-  const otherFilters = time !== null || categories.length > 0 || q.trim() !== '' || addedBy !== null
+  const moreOn = (time !== null ? 1 : 0) + (addedBy !== null ? 1 : 0) + (foodType !== null ? 1 : 0)
+  const otherFilters = time !== null || meal !== null || foodType !== null || q.trim() !== '' || addedBy !== null
   const filtering = otherFilters || onlyFavourites
 
   const statusText =
@@ -131,14 +132,15 @@ export function RecipeList() {
         : `${shown.length} ${shown.length === 1 ? 'recipe' : 'recipes'}`
       : ''
 
-  function toggleCategory(c: Category) {
-    // One category at a time (owner decision): tapping another switches, tapping the selected one clears.
-    setCategories((prev) => (prev.includes(c) ? [] : [c]))
+  function toggleMeal(m: Meal) {
+    // One meal at a time (owner decision): tapping another switches, tapping the selected one clears.
+    setMeal((prev) => (prev === m ? null : m))
   }
   function clearFilters(clearFavourites = true) {
     setTime(null)
     setAddedBy(null)
-    setCategories(none)
+    setMeal(null)
+    setFoodType(null)
     setSearch('')
     setQ('')
     if (clearFavourites) setOnlyFavourites(false)
@@ -165,18 +167,18 @@ export function RecipeList() {
           />
         </div>
         {/* One scrolling row, no visible label (owner decision): Favourites toggle, a divider, then the
-            single-select categories. Bleeds to the screen edge so the cut-off chip hints at more. */}
-        <div role="group" aria-label="Favourites and category" className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 py-1 [&>*]:shrink-0 [&>*]:whitespace-nowrap">
+            single-select meals. Bleeds to the screen edge so the cut-off chip hints at more. */}
+        <div role="group" aria-label="Favourites and meal" className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 py-1 [&>*]:shrink-0 [&>*]:whitespace-nowrap">
           <FilterChip pressed={onlyFavourites} onClick={() => setOnlyFavourites((on) => !on)}>
-            <span aria-hidden="true">♡&nbsp;</span>Favourites
+            <span aria-hidden="true">♡</span><span className="sr-only">Favourites</span>
           </FilterChip>
           <span aria-hidden="true" className="h-6 w-px bg-input" />
-          <FilterChip pressed={categories.length === 0} onClick={() => setCategories(none)}>All</FilterChip>
-          {CATEGORIES.map((c) => (
-            <FilterChip key={c} pressed={categories.includes(c)} onClick={() => toggleCategory(c)}>{c}</FilterChip>
+          <FilterChip pressed={meal === null} onClick={() => setMeal(null)}>All</FilterChip>
+          {MEALS.map((m) => (
+            <FilterChip key={m} pressed={meal === m} onClick={() => toggleMeal(m)}>{m}</FilterChip>
           ))}
         </div>
-        {/* Time and "Added by" are rarely used, so they sit behind "More filters" (owner decision). The
+        {/* Time, food type and "Added by" are rarely used, so they sit behind "More filters" (owner decision). The
             button counts the ones that are on, so a hidden filter is never a surprise. */}
         {/* -mt-3 against the block's 16px gap, plus the chip row's 4px bottom padding: 8px under the chips. */}
         <div className="-mt-3">
@@ -200,6 +202,15 @@ export function RecipeList() {
                   <FilterChip pressed={time === null} onClick={() => setTime(null)}>All</FilterChip>
                   {TIME_TAGS.map((t) => (
                     <FilterChip key={t} pressed={time === t} onClick={() => setTime(t)}>{timeLabel(t)}</FilterChip>
+                  ))}
+                </div>
+              </fieldset>
+              <fieldset className="min-w-0">
+                <legend className="mb-1.5"><SectionLabel>Food type</SectionLabel></legend>
+                <div className="flex flex-wrap gap-2">
+                  <FilterChip pressed={foodType === null} onClick={() => setFoodType(null)}>All</FilterChip>
+                  {FOOD_TYPES.map((f) => (
+                    <FilterChip key={f} pressed={foodType === f} onClick={() => setFoodType(f)}>{f}</FilterChip>
                   ))}
                 </div>
               </fieldset>

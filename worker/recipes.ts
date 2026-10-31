@@ -8,9 +8,9 @@ import {
   takeWriteToken,
 } from './limits'
 import {
-  CATEGORIES, MAX_BODY_BYTES, isCategory, isTimeTag, sortCategories, validateRecipeInput,
+  FOOD_TYPES, MAX_BODY_BYTES, MEALS, isFoodType, isMeal, isTimeTag, sortFoodTypes, sortMeals, validateRecipeInput,
 } from './recipe-validation'
-import type { Category, RecipeInput, TimeTag } from './recipe-validation'
+import type { FoodType, Meal, RecipeInput, TimeTag } from './recipe-validation'
 import type { SessionUser } from './session'
 
 const MAX_SEARCH_LENGTH = 100
@@ -26,7 +26,8 @@ interface RecipeRow {
   created_at: number
   updated_at: number
   added_by: string
-  categories: string | null
+  meals: string | null
+  food_types: string | null
   has_files: number
   favourite: number
 }
@@ -34,7 +35,8 @@ interface RecipeRow {
 const SELECT_RECIPE = `
   SELECT r.id, r.user_id, r.title, r.time_tag, r.link, r.notes, r.created_at, r.updated_at,
          u.name AS added_by,
-         (SELECT group_concat(category) FROM recipe_categories WHERE recipe_id = r.id) AS categories,
+         (SELECT group_concat(meal) FROM recipe_meals WHERE recipe_id = r.id) AS meals,
+         (SELECT group_concat(food_type) FROM recipe_food_types WHERE recipe_id = r.id) AS food_types,
          EXISTS (SELECT 1 FROM recipe_files WHERE recipe_id = r.id) AS has_files,
          EXISTS (SELECT 1 FROM favourites fv WHERE fv.recipe_id = r.id AND fv.user_id = ?) AS favourite
   FROM recipes r JOIN users u ON u.id = r.user_id`
@@ -47,7 +49,8 @@ function summary(row: RecipeRow, user: SessionUser) {
     id: row.id,
     title: row.title,
     timeTag: row.time_tag,
-    categories: sortCategories((row.categories ?? '').split(',')),
+    meals: sortMeals((row.meals ?? '').split(',')),
+    foodTypes: sortFoodTypes((row.food_types ?? '').split(',')),
     addedBy: firstName(row.added_by), // first name only; the full name and owner id never leave the server
     canEdit: row.user_id === user.id,
     createdAt: new Date(row.created_at).toISOString(),
@@ -170,7 +173,7 @@ async function recipeView(env: AppEnv, user: SessionUser, id: string) {
   return row ? detail(row, user, files) : null
 }
 
-/** GET /api/recipes?time=&categories=&q=&favourites=1 */
+/** GET /api/recipes?time=&meal=&foodType=&q=&favourites=1 */
 export async function listRecipes(request: Request, env: AppEnv, user: SessionUser): Promise<Response> {
   const params = new URL(request.url).searchParams
   const where: string[] = []
@@ -183,17 +186,18 @@ export async function listRecipes(request: Request, env: AppEnv, user: SessionUs
     binds.push(time)
   }
 
-  // categories: comma-separated and/or repeated; any-of (OR). Empty means no category filter.
-  const cats = params.getAll('categories').flatMap((v) => v.split(',')).map((v) => v.trim()).filter(Boolean)
-  if (cats.length > 0) {
-    if (!cats.every(isCategory)) {
-      return errorResponse(400, 'invalid_filter', `Categories must come from: ${CATEGORIES.join(', ')}.`)
-    }
-    const unique = [...new Set(cats)]
-    where.push(
-      `EXISTS (SELECT 1 FROM recipe_categories c WHERE c.recipe_id = r.id AND c.category IN (${unique.map(() => '?').join(',')}))`,
-    )
-    binds.push(...unique)
+  // meal and foodType: one value each. Empty means no filter. Both AND with every other filter.
+  const meal = params.get('meal')
+  if (meal !== null && meal !== '') {
+    if (!isMeal(meal)) return errorResponse(400, 'invalid_filter', `Meal must be one of: ${MEALS.join(', ')}.`)
+    where.push('EXISTS (SELECT 1 FROM recipe_meals m WHERE m.recipe_id = r.id AND m.meal = ?)')
+    binds.push(meal)
+  }
+  const foodType = params.get('foodType')
+  if (foodType !== null && foodType !== '') {
+    if (!isFoodType(foodType)) return errorResponse(400, 'invalid_filter', `Food type must be one of: ${FOOD_TYPES.join(', ')}.`)
+    where.push('EXISTS (SELECT 1 FROM recipe_food_types t WHERE t.recipe_id = r.id AND t.food_type = ?)')
+    binds.push(foodType)
   }
 
   // favourites=1 keeps only the session user's own favourites. Any other value is no filter.
@@ -220,12 +224,19 @@ export async function getRecipe(env: AppEnv, user: SessionUser, id: string): Pro
   return json({ recipe })
 }
 
-const categoryInserts = (env: AppEnv, id: string, categories: Category[]) =>
-  // Guarded on the recipe existing, so a failed (capped) insert leaves no stray rows.
-  categories.map((c) =>
+// Guarded on the recipe existing, so a failed (capped) insert leaves no stray rows.
+const mealInserts = (env: AppEnv, id: string, meals: Meal[]) =>
+  meals.map((m) =>
     env.DB.prepare(
-      'INSERT INTO recipe_categories (recipe_id, category) SELECT ?1, ?2 WHERE EXISTS (SELECT 1 FROM recipes WHERE id = ?1)',
-    ).bind(id, c),
+      'INSERT INTO recipe_meals (recipe_id, meal) SELECT ?1, ?2 WHERE EXISTS (SELECT 1 FROM recipes WHERE id = ?1)',
+    ).bind(id, m),
+  )
+
+const foodTypeInserts = (env: AppEnv, id: string, foodTypes: FoodType[]) =>
+  foodTypes.map((t) =>
+    env.DB.prepare(
+      'INSERT INTO recipe_food_types (recipe_id, food_type) SELECT ?1, ?2 WHERE EXISTS (SELECT 1 FROM recipes WHERE id = ?1)',
+    ).bind(id, t),
   )
 
 const FILES_CHANGED = () =>
@@ -268,7 +279,8 @@ export async function createRecipe(request: Request, env: AppEnv, user: SessionU
          SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7
          WHERE (SELECT COUNT(*) FROM recipes WHERE user_id = ?2) < ?8`,
       ).bind(id, user.id, input.title, input.timeTag, input.link, input.notes, now, max),
-      ...categoryInserts(env, id, input.categories),
+      ...mealInserts(env, id, input.meals),
+      ...foodTypeInserts(env, id, input.foodTypes),
       ...incoming.map((f) => fileInsert(env, id, user.id, now, f)),
     ])
   } catch (err) {
@@ -348,8 +360,10 @@ export async function updateRecipe(
         `UPDATE recipes SET title = ?, time_tag = ?, link = ?, notes = ?, updated_at = ?
          WHERE id = ? AND user_id = ?`,
       ).bind(input.title, input.timeTag, input.link, input.notes, now, id, user.id),
-      env.DB.prepare('DELETE FROM recipe_categories WHERE recipe_id = ?1 AND EXISTS (SELECT 1 FROM recipes WHERE id = ?1 AND user_id = ?2)').bind(id, user.id),
-      ...categoryInserts(env, id, input.categories),
+      env.DB.prepare('DELETE FROM recipe_meals WHERE recipe_id = ?1 AND EXISTS (SELECT 1 FROM recipes WHERE id = ?1 AND user_id = ?2)').bind(id, user.id),
+      env.DB.prepare('DELETE FROM recipe_food_types WHERE recipe_id = ?1 AND EXISTS (SELECT 1 FROM recipes WHERE id = ?1 AND user_id = ?2)').bind(id, user.id),
+      ...mealInserts(env, id, input.meals),
+      ...foodTypeInserts(env, id, input.foodTypes),
       // Removals come before inserts so the freed bytes count for the new files' cap checks.
       ...removing.map((f) =>
         env.DB.prepare('DELETE FROM recipe_files WHERE id = ?1 AND recipe_id = ?2 AND user_id = ?3').bind(f.id, id, user.id)),

@@ -105,7 +105,7 @@ describe('rate limit', () => {
     expect(await rows('write_rate_limits')).toBe(0)
     const create = await call('/api/recipes', {
       method: 'POST', headers: { cookie, 'content-type': 'application/json', ...CSRF_HEADERS },
-      body: JSON.stringify({ title: 'T', timeTag: 'Around 1 hr', categories: ['Chicken'], notes: 'n' }),
+      body: JSON.stringify({ title: 'T', timeTag: 'Around 1 hr', meals: ['Dinner'], notes: 'n' }),
     })
     expect(create.status).toBe(201)
     // Window reset frees it again.

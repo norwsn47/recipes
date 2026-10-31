@@ -30,7 +30,7 @@ const data = (head: number[], size = 64): Uint8Array => {
 interface Up { name: string; bytes: Uint8Array; type?: string }
 const png = (name = 'a.png', size = 64): Up => ({ name, bytes: data(PNG, size), type: 'image/png' })
 
-const recipeBody = { title: 'With files', timeTag: 'Around 1 hr', categories: ['Chicken'] }
+const recipeBody = { title: 'With files', timeTag: 'Around 1 hr', meals: ['Dinner'], foodTypes: ['Chicken'] }
 const form = (recipe: Record<string, unknown>, files: Up[]): FormData => {
   const fd = new FormData()
   fd.set('recipe', JSON.stringify(recipe))
@@ -80,7 +80,7 @@ async function seed(userId: string, recipeId: string, sizes: number[]) {
   await baseEnv.DB.prepare(
     "INSERT INTO recipes (id, user_id, title, time_tag, notes, created_at, updated_at) VALUES (?, ?, 'Seed', 'Around 1 hr', 'n', ?, ?)",
   ).bind(recipeId, userId, now, now).run()
-  await baseEnv.DB.prepare("INSERT INTO recipe_categories (recipe_id, category) VALUES (?, 'Fish')").bind(recipeId).run()
+  await baseEnv.DB.prepare("INSERT INTO recipe_meals (recipe_id, meal) VALUES (?, 'Dinner')").bind(recipeId).run()
   for (const [i, size] of sizes.entries()) {
     await baseEnv.DB.prepare(
       "INSERT INTO recipe_files (id, recipe_id, user_id, r2_key, original_name, content_type, size, created_at) VALUES (?, ?, ?, ?, 'seed.png', 'image/png', ?, ?)",
@@ -274,7 +274,7 @@ describe('all or nothing', () => {
     expect((await errOf(res)).code).toBe('user_storage_limit_reached')
     expect(await count('recipes')).toBe(1) // only the racer
     expect(await count('recipe_files')).toBe(1)
-    expect(await count('recipe_categories')).toBe(1)
+    expect(await count('recipe_meals')).toBe(1)
     expect(await objects()).toBe(0)
   })
 

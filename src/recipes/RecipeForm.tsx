@@ -3,15 +3,15 @@ import type { FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Banner, Button, Field, Input, Textarea } from '@design-system/components'
 import {
-  ApiError, CATEGORIES, FILE_ACCEPT, MAX_FILES, MAX_LINK, MAX_NOTES, MAX_RECIPE_FILE_BYTES, MAX_TITLE, MB, TIME_TAGS,
+  ApiError, FILE_ACCEPT, FOOD_TYPES, MAX_FILES, MAX_LINK, MAX_NOTES, MAX_RECIPE_FILE_BYTES, MAX_TITLE, MB, MEALS, TIME_TAGS,
   checkFile, createRecipe, fetchLinkTitle, formatBytes, getRecipe, isWebLink, timeLabel, updateRecipe, validateRecipe,
 } from '../lib/recipes'
 import { nameFromFileName, nameFromUrl } from '../lib/names'
-import type { Category, FieldErrors, RecipeFile, RecipeInput, TimeTag } from '../lib/recipes'
+import type { FieldErrors, FoodType, Meal, RecipeFile, RecipeInput, TimeTag } from '../lib/recipes'
 import { BackLink } from './BackLink'
 import { FilterChip } from './FilterChip'
 
-const EMPTY: RecipeInput = { title: '', timeTag: '', categories: [], link: '', notes: '' }
+const EMPTY: RecipeInput = { title: '', timeTag: '', meals: [], foodTypes: [], link: '', notes: '' }
 
 // Codes whose server message is shown exactly as given.
 const SERVER_MESSAGE_CODES = new Set([
@@ -107,7 +107,7 @@ export function RecipeForm() {
           setLoad('forbidden')
           return
         }
-        setValues({ title: r.title, timeTag: r.timeTag, categories: r.categories, link: r.link ?? '', notes: r.notes ?? '' })
+        setValues({ title: r.title, timeTag: r.timeTag, meals: r.meals, foodTypes: r.foodTypes, link: r.link ?? '', notes: r.notes ?? '' })
         setExistingFiles(r.files)
         setLoad('ready')
       },
@@ -389,16 +389,30 @@ export function RecipeForm() {
         ))}
       </Group>
 
-      <Group legend="Categories" hint="Choose at least one." error={errors.categories}>
-        {CATEGORIES.map((c) => (
+      <Group legend="Meal" hint="Choose at least one." error={errors.meals}>
+        {MEALS.map((m) => (
           <FilterChip
-            key={c}
-            pressed={values.categories.includes(c)}
+            key={m}
+            pressed={values.meals.includes(m)}
             onClick={() =>
-              set('categories', values.categories.includes(c) ? values.categories.filter((x) => x !== c) : CATEGORIES.filter((x) => x === c || values.categories.includes(x as Category)))
+              set('meals', values.meals.includes(m) ? values.meals.filter((x) => x !== m) : MEALS.filter((x) => x === m || values.meals.includes(x as Meal)))
             }
           >
-            {c}
+            {m}
+          </FilterChip>
+        ))}
+      </Group>
+
+      <Group legend="Food type" hint="Optional." error={errors.foodTypes}>
+        {FOOD_TYPES.map((f) => (
+          <FilterChip
+            key={f}
+            pressed={values.foodTypes.includes(f)}
+            onClick={() =>
+              set('foodTypes', values.foodTypes.includes(f) ? values.foodTypes.filter((x) => x !== f) : FOOD_TYPES.filter((x) => x === f || values.foodTypes.includes(x as FoodType)))
+            }
+          >
+            {f}
           </FilterChip>
         ))}
       </Group>

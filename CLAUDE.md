@@ -1,5 +1,5 @@
 # CLAUDE.md
-Last updated: 18 October 2026
+Last updated: 31 October 2026
 > Ground rules for this project. Read this at the start of every session.
 > Whenever you edit this file, update the "Last updated:" date above to today's date before saving.
 
@@ -207,19 +207,19 @@ Layout: Mobile-first
 **Out of scope** (deliberate; salvaged from the retired PRD, 18 October 2026)
 - No admin role, in-app moderation, report button or in-app user management. Access is the Google test-user list.
 - No Google app publishing, Branding page or privacy policy: the app stays in Testing mode permanently.
-- No public or signed-out viewing, no other sign-in methods, no Cloudflare Access. The one exception is the `/r/:id` share preview, which shows a recipe's title, time and categories and nothing else (owner decision, 18 October 2026).
+- No public or signed-out viewing, no other sign-in methods, no Cloudflare Access. The one exception is the `/r/:id` share preview, which shows a recipe's title, time, meals and food types and nothing else (owner decision, 18 October 2026).
 - No self-service account deletion, data export or usage meter.
 - No comments, ratings, shared favourites or favourite counts.
-- No ingredients, method steps, meal planning or custom tags; the category list is fixed in code.
+- No ingredients, method steps, meal planning or custom tags; the meal and food type lists are fixed in code.
 - From a link, only the page title is read; pasted URLs and fetched pages are never stored or logged.
 - Files are PDF, PNG, JPG and HEIC only, with no HEIC conversion. No native app or offline mode.
 - No PATCH, no exact rate limit, no unsaved-changes warning.
 
 **Product rules** (would look like bugs without the reason)
 - Copy never calls recipes "private"; the only visibility statement is one sentence in the settings pop-up. Time labels show as "< 30 mins", "1 hr", "1 hr +"; the database keeps the longer stored names.
-- Recipes can have several categories, but the list filter is one category at a time. Favourites is a separate chip that combines (AND) with the other filters.
+- Recipes have two tag layers, both multi-select: Meal (required, at least one: Breakfast, Lunch, Dinner, Dessert, Baking) and Food type (optional: Chicken, Fish, Pork, Beef, Lamb, Vegetarian). The list filters are one meal and one food type at a time (food type sits under "More filters" and counts towards "(N on)"). Favourites is a separate chip that combines (AND) with the other filters.
 - Favourites are personal, with no counts. Un-favouriting while the Favourites filter is on keeps the card until the next refetch, so a mis-tap can be undone.
-- Sharing: `GET /r/:id` is the only unauthenticated recipe route (served by the Worker; `/r/*` is in `run_worker_first`). It returns link-preview tags with the title, categories and short time label only, then redirects to `/recipes/:id`, where signed-out visitors meet the sign-in screen at that URL. Unknown ids get a generic "Family Recipes" page. It has its own strict CSP, a 5-minute public cache and no rate limit (UUID ids, one primary-key read). Never add notes, links, files, names or emails to it. The image is `public/og-image.png`, regenerated with `npm run og-image`.
+- Sharing: `GET /r/:id` is the only unauthenticated recipe route (served by the Worker; `/r/*` is in `run_worker_first`). It returns link-preview tags with the title, meals, food types and short time label only, then redirects to `/recipes/:id`, where signed-out visitors meet the sign-in screen at that URL. Unknown ids get a generic "Family Recipes" page. It has its own strict CSP, a 5-minute public cache and no rate limit (UUID ids, one primary-key read). Never add notes, links, files, names or emails to it. The image is `public/og-image.png`, regenerated with `npm run og-image`.
 - "MB" means 1,048,576 bytes. Cap refusals return 409. The ~20 writes/minute limit is a fixed window and approximate on purpose.
 - The "by Outbuild" mark is in the settings pop-up, not on the home screen: a deliberate departure from `design-system/DESIGN.md`.
 - Fonts load from Google Fonts (accepted: visitors' IP addresses go to Google).

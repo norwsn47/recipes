@@ -1,5 +1,5 @@
 # BACKLOG.md
-Last updated: 18 October 2026
+Last updated: 31 October 2026
 
 > A to-do list, so nothing gets forgotten. Open items only.
 > - **Removing:** whoever finishes an item deletes its line in the same commit as the change (the project-manager for large changes, the main session for small ones). Add a `CHANGELOG.md` note only if it was a decision or a reversal.
@@ -31,7 +31,7 @@ src/auth/SignInScreen.tsx overlay has role=dialog but focus drops to the body wh
 worker/files.ts serves immutable files with `private, no-cache` and no ETag, so every view re-downloads up to 10 MB. Add an ETag (and/or a longer private cache) without breaking delete.
 
 ### 24. Guard the copied constants
-Categories, time tags and length limits are copied across worker/recipe-validation.ts, src/lib/recipes.ts and migrations/0002 CHECKs; only time labels have a drift test. Add a drift test or share one module. The first-name rule now lives only in the worker (worker/recipes.ts).
+Length limits (title, link, notes) are still copied across worker/recipe-validation.ts and src/lib/recipes.ts; meals, food types and time tags now have a drift test (test/migration-0006.test.ts). Add a drift test or share one module. The first-name rule now lives only in the worker (worker/recipes.ts).
 
 ### 25. Use the file-limit constants in copy
 "10 MB" and "25 MB" are typed into messages in src/recipes/RecipeForm.tsx and src/lib/recipes.ts instead of coming from MAX_FILE_BYTES / MAX_RECIPE_FILE_BYTES.
