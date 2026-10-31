@@ -20,10 +20,10 @@ export function RecipeListRow({ id, title, line, backState, trailing }: {
       <Link
         to={`/recipes/${id}`}
         state={backState}
-        className="flex min-h-14 min-w-0 flex-1 flex-col justify-center rounded-lg py-2 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring"
+        className="flex min-h-16 min-w-0 flex-1 flex-col justify-center rounded-lg py-3.5 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring"
       >
         <span className="text-[17px] font-semibold leading-tight [overflow-wrap:anywhere]">{title}</span>
-        {line && <span className="mt-0.5 text-sm text-muted-foreground [overflow-wrap:anywhere]">{line}</span>}
+        {line && <span className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{line}</span>}
       </Link>
       {trailing}
     </li>
