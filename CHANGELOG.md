@@ -5,6 +5,10 @@ Last updated: 31 October 2026
 
 ---
 
+## 31 October 2026 - Filter ticklists, + on list pages, "Recently added"
+- Reversal (owner): list-page filter chips open a dropdown ticklist below the chip instead of a bottom sheet. Still one value per filter.
+- Decision (owner): the + button appears on every list page; from a meal page it pre-selects that meal on the add form. "Just added" on Home is renamed "Recently added".
+
 ## 31 October 2026 - Home screen redesigned into tiles and list pages
 - Decision (owner): Home becomes a search box, a tile grid (Favourites, five meals, Everything) and "Just added" (3 newest across everyone). Each tile opens a list page (`/meals/:meal`, `/everything`, `/favourites`) with plain rows, dropdown filter chips in a bottom sheet, filters kept in the URL query, and "‹ All meals" in the header. The recipe page's back link names where you came from. "All recipes" wording becomes "All meals".
 - Reversal: the meal chip row, the Favourites chip, and the "More filters" panel on Home are removed; Home has no filters. Favourites can no longer be combined with every other filter: its page offers Meal and Time only. The share button leaves the list (it stays on the recipe page).

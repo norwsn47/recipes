@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation, useParams, useSearchParams } from 'react-router-dom'
-import { Banner, Button, Dialog, Input } from '@design-system/components'
+import { Banner, Button, Input } from '@design-system/components'
 import { useAuth } from '../auth/AuthContext'
 import { applyFilters, filtersFor, mealFromSlug, mealPath, mealPlural, parseFilters, rowLine, writeFilters, EVERYTHING_PATH, FAVOURITES_PATH } from '../lib/grouping'
 import type { BackState, FilterKey, Filters, PageKind } from '../lib/grouping'
@@ -9,7 +9,8 @@ import { FOOD_TYPES, MEALS, TIME_TAGS, listRecipes, timeLabel } from '../lib/rec
 import type { RecipeSummary, TimeTag } from '../lib/recipes'
 import { BackLink } from './BackLink'
 import { FavouriteButton } from './FavouriteButton'
-import { FilterChip } from './FilterChip'
+import { AddButton } from './AddButton'
+import { FilterDropdown } from './FilterDropdown'
 import { Notice } from './Notice'
 import { RecipeListRow } from './RecipeListRow'
 import { favourites } from './favouritesStore'
@@ -20,7 +21,7 @@ type Result = { key: string; recipes: RecipeSummary[]; favouriteIds: ReadonlySet
 const countText = (n: number) => `${n} ${n === 1 ? 'recipe' : 'recipes'}`
 const FILTER_LABEL: Record<FilterKey, string> = { meal: 'Meal', food: 'Food type', time: 'Time', by: 'Added by' }
 
-/** The list pages: /meals/:meal, /everything and /favourites. Remounted per page so search and dialogs reset. */
+/** The list pages: /meals/:meal, /everything and /favourites. Remounted per page so search and filter lists reset. */
 export function ListPage({ kind }: { kind: 'meal' | 'everything' | 'favourites' }) {
   const { meal: slug } = useParams()
   const meal = kind === 'meal' ? mealFromSlug(slug) : null
@@ -45,7 +46,6 @@ function ListPageBody({ page }: { page: PageKind }) {
   const [result, setResult] = useState<Result | null>(null)
   const [searching, setSearching] = useState(false)
   const [search, setSearch] = useState('')
-  const [openFilter, setOpenFilter] = useState<FilterKey | null>(null)
   const searchButton = useRef<HTMLButtonElement>(null)
 
   const pageMeal = page.kind === 'meal' ? page.meal : null
@@ -107,8 +107,6 @@ function ListPageBody({ page }: { page: PageKind }) {
     if (searching) document.getElementById('list-search')?.focus()
   }, [searching])
 
-  const closeFilter = useCallback(() => setOpenFilter(null), [])
-
   const backState: BackState = { from: { label: pageMeal ?? (page.kind === 'favourites' ? 'Favourites' : 'Everything'), to: basePath + location.search } }
   const rowMode = pageMeal ? 'meal-page' : 'with-meals'
   const noun = pageMeal ? mealPlural(pageMeal) : 'recipes'
@@ -131,7 +129,7 @@ function ListPageBody({ page }: { page: PageKind }) {
   const filterKeys = filtersFor(page).filter((k) => k !== 'by' || (names && names.length > 0))
 
   return (
-    <section className="flex flex-col gap-3" style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}>
+    <section className="flex flex-col gap-3" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))' }}>
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="min-w-0 text-3xl [overflow-wrap:anywhere]">{heading}</h2>
         {results && <p className="shrink-0 text-muted-foreground">{countText(results.length)}</p>}
@@ -155,7 +153,7 @@ function ListPageBody({ page }: { page: PageKind }) {
                 </svg>
               </button>
               {filterKeys.map((k) => (
-                <DropdownChip key={k} label={FILTER_LABEL[k]} value={shownValue(k)} onClick={() => setOpenFilter(k)} />
+                <FilterDropdown key={k} label={FILTER_LABEL[k]} value={filters[k]} shownValue={shownValue(k)} options={optionsFor(k)} onChange={(v) => setFilter(k, v)} />
               ))}
             </div>
             {filtersOn > 0 && (
@@ -202,18 +200,6 @@ function ListPageBody({ page }: { page: PageKind }) {
               </button>
             </div>
           )}
-
-          {filterKeys.map((k) => (
-            <Dialog key={k} open={openFilter === k} onClose={closeFilter} title={FILTER_LABEL[k]}>
-              <div className="mb-5 flex flex-wrap gap-2">
-                <FilterChip pressed={filters[k] === undefined} onClick={() => { setFilter(k, undefined); closeFilter() }}>All</FilterChip>
-                {optionsFor(k).map((o) => (
-                  <FilterChip key={o.value} pressed={filters[k] === o.value} onClick={() => { setFilter(k, o.value); closeFilter() }}>{o.label}</FilterChip>
-                ))}
-              </div>
-              <Button variant="ghost" className="w-full" onClick={closeFilter}>Close</Button>
-            </Dialog>
-          ))}
         </>
       )}
 
@@ -252,6 +238,8 @@ function ListPageBody({ page }: { page: PageKind }) {
       )}
 
       <Notice />
+
+      <AddButton meal={pageMeal} />
     </section>
   )
 }
@@ -269,26 +257,7 @@ function EmptyBase({ page }: { page: PageKind }): ReactNode {
   return (
     <div className="flex flex-col items-start gap-1">
       <p className="text-lg font-semibold">{page.kind === 'meal' ? `No ${what} yet` : 'No recipes saved yet'}</p>
-      <p className="text-muted-foreground">Add one from the home screen with the green + button.</p>
+      <p className="text-muted-foreground">Add one with the green + button.</p>
     </div>
-  )
-}
-
-function DropdownChip({ label, value, onClick }: { label: string; value: string | undefined; onClick(): void }) {
-  return (
-    <button
-      type="button"
-      aria-haspopup="dialog"
-      onClick={onClick}
-      className={
-        'inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 text-sm font-semibold transition-colors outline-none [-webkit-tap-highlight-color:transparent] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring ' +
-        (value ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background text-foreground hover:bg-accent')
-      }
-    >
-      {value ? <><span className="sr-only">{label}: </span>{value}</> : label}
-      <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="m6 9 6 6 6-6" />
-      </svg>
-    </button>
   )
 }

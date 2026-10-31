@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Banner, Button, Field, Input, Textarea } from '@design-system/components'
 import {
   ApiError, FILE_ACCEPT, FOOD_TYPES, MAX_FILES, MAX_LINK, MAX_NOTES, MAX_RECIPE_FILE_BYTES, MAX_TITLE, MB, MEALS, TIME_TAGS,
@@ -71,7 +71,12 @@ export function RecipeForm() {
   const editing = id !== undefined
   const navigate = useNavigate()
   const formRef = useRef<HTMLFormElement>(null)
-  const [values, setValues] = useState<RecipeInput>(EMPTY)
+  const [searchParams] = useSearchParams()
+  // Opened from a meal page's + button: that meal starts selected (new recipes only).
+  const [values, setValues] = useState<RecipeInput>(() => {
+    const meal = MEALS.find((m) => m === searchParams.get('meal'))
+    return !editing && meal ? { ...EMPTY, meals: [meal] } : EMPTY
+  })
   const [errors, setErrors] = useState<FieldErrors>({})
   const [banner, setBanner] = useState('')
   const [saving, setSaving] = useState(false)

@@ -6,6 +6,7 @@ import { EVERYTHING_PATH, FAVOURITES_PATH, applyFilters, justAdded, mealPath, ro
 import type { BackState } from '../lib/grouping'
 import { MEALS, listRecipes } from '../lib/recipes'
 import type { RecipeSummary } from '../lib/recipes'
+import { AddButton } from './AddButton'
 import { Notice } from './Notice'
 import { RecipeListRow } from './RecipeListRow'
 import { favourites } from './favouritesStore'
@@ -161,8 +162,8 @@ export function RecipeList() {
           </nav>
 
           {newest.length > 0 && (
-            <section aria-labelledby="just-added">
-              <SectionLabel id="just-added" className="mb-1">Just added</SectionLabel>
+            <section aria-labelledby="recently-added">
+              <SectionLabel id="recently-added" className="mb-1">Recently added</SectionLabel>
               <ul>
                 {newest.map((r) => (
                   <RecipeListRow key={r.id} id={r.id} title={r.title} line={r.addedBy.trim()} backState={HOME_BACK} />
@@ -175,20 +176,7 @@ export function RecipeList() {
 
       <Notice />
 
-      {/* Floating add button. Right edge: the content column's right edge (36rem = max-w-xl) on wide screens, the viewport edge on phones. */}
-      <Link
-        to="/recipes/new"
-        aria-label="Add recipe"
-        className="fixed z-10 flex size-14 items-center justify-center rounded-full border-4 border-background bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        style={{
-          bottom: 'calc(1rem + env(safe-area-inset-bottom))',
-          right: 'max(calc(1rem + env(safe-area-inset-right)), calc((100vw - 36rem) / 2 + 1rem))',
-        }}
-      >
-        <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
-      </Link>
+      <AddButton />
     </section>
   )
 }
