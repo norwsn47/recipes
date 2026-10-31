@@ -1,9 +1,13 @@
 # CHANGELOG.md
-Last updated: 18 October 2026
+Last updated: 31 October 2026
 > A record of decisions, reversals and notable behaviour changes, newest first. Git history is the full record of everything else, so most changes need no entry here.
 > Whenever you add an entry, update the "Last updated:" date above.
 
 ---
+
+## 31 October 2026 - Categories replaced by two tag layers: Meal and Food type
+- Decision (owner): the single category list is replaced by Meal (required, several allowed: Breakfast, Lunch, Dinner, Dessert, Baking) and Food type (optional, several allowed: Chicken, Fish, Pork, Beef, Lamb, Vegetarian). "Other" is dropped. Home filters: meal chips in the main row, food type under "More filters". API fields are `meals` and `foodTypes`; the share preview lists meals then food types.
+- Data mapping (migration 0006): Chicken, Fish, Pork, Beef, Lamb -> meal Dinner and the same food type; Breakfast, Dessert, Baking -> the same meal; a recipe with no meal (e.g. only Other) -> Dinner; Other rows removed.
 
 ## 18 October 2026 - API no longer sends full names or user ids
 - Behaviour change (audit fix): recipe list and detail responses now send the author's first name only (in `addedBy`) plus `canEdit`. The full Google display name, `ownerId`, `hasLink`, `hasNotes` and `updatedAt` are no longer sent. The UI already showed only first names.

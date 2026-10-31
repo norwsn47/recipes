@@ -10,14 +10,15 @@ const ID = '11111111-2222-4333-8444-555555555555'
 const OTHER_ID = '99999999-8888-4777-8666-444444444444'
 const NASTY = `"><script>alert(1)</script>' & <b>`
 
-async function seed(title = 'Pasta bake', timeTag = 'Less than 30 mins', cats = ['Chicken', 'Breakfast']) {
+async function seed(title = 'Pasta bake', timeTag = 'Less than 30 mins', meals = ['Breakfast', 'Dinner'], foodTypes = ['Chicken']) {
   const db = baseEnv.DB
   await db.batch([
     db.prepare(`INSERT INTO users (id, google_sub, email, name, created_at, updated_at) VALUES ('owner-user-id-xyz', 'sub-secret', 'secret.owner@example.org', 'Zebediah Ownerman', 1, 1)`),
     db.prepare(`INSERT INTO recipes (id, user_id, title, time_tag, link, notes, created_at, updated_at) VALUES (?, 'owner-user-id-xyz', ?, ?, 'https://secret-link.example/path', 'SECRET NOTES TEXT', 1, 1)`).bind(ID, title, timeTag),
     db.prepare(`INSERT INTO recipes (id, user_id, title, time_tag, created_at, updated_at, notes) VALUES (?, 'owner-user-id-xyz', 'Other recipe title', 'Around 1 hr', 2, 2, 'x')`).bind(OTHER_ID),
     db.prepare(`INSERT INTO recipe_files (id, recipe_id, user_id, r2_key, original_name, content_type, size, created_at) VALUES ('file-id-abc', ?, 'owner-user-id-xyz', 'r2/secret-key', 'secret-file-name.pdf', 'application/pdf', 10, 1)`).bind(ID),
-    ...cats.map((c) => db.prepare('INSERT INTO recipe_categories (recipe_id, category) VALUES (?, ?)').bind(ID, c)),
+    ...meals.map((m) => db.prepare('INSERT INTO recipe_meals (recipe_id, meal) VALUES (?, ?)').bind(ID, m)),
+    ...foodTypes.map((t) => db.prepare('INSERT INTO recipe_food_types (recipe_id, food_type) VALUES (?, ?)').bind(ID, t)),
   ])
 }
 
@@ -52,7 +53,7 @@ describe('GET /r/:id for a real recipe, signed out', () => {
     const body = await res.text()
     expect(body).toContain('<title>Pasta bake</title>')
     expect(body).toContain('<meta property="og:title" content="Pasta bake">')
-    expect(body).toContain('<meta property="og:description" content="Breakfast, Chicken · &lt; 30 mins · Family Recipes">')
+    expect(body).toContain('<meta property="og:description" content="Breakfast, Dinner · Chicken · &lt; 30 mins · Family Recipes">')
     expect(body).toContain(`<meta property="og:url" content="http://example.com/r/${ID}">`)
     expect(body).toContain('<meta property="og:image" content="http://example.com/og-image.png">')
     expect(body).toContain('<meta property="og:image:width" content="1200">')
@@ -64,11 +65,19 @@ describe('GET /r/:id for a real recipe, signed out', () => {
     expect(body).toContain(`<a href="/recipes/${ID}">`)
   })
 
+  it('lists meals then food types, in list order, and omits food types when there are none', async () => {
+    await seed('T', 'Around 1 hr', ['Dessert', 'Lunch'], ['Vegetarian', 'Beef'])
+    expect(await (await call(`/r/${ID}`)).text()).toContain('content="Lunch, Dessert · Beef, Vegetarian · 1 hr · Family Recipes"')
+    await resetDb()
+    await seed('T', 'Around 1 hr', ['Baking'], [])
+    expect(await (await call(`/r/${ID}`)).text()).toContain('content="Baking · 1 hr · Family Recipes"')
+  })
+
   it('uses the short label for each time tag', async () => {
     for (const [tag, label] of [['Around 1 hr', '1 hr'], ['Extensive prep', '1 hr +']]) {
       await resetDb()
-      await seed('T', tag, ['Fish'])
-      expect(await (await call(`/r/${ID}`)).text()).toContain(`content="Fish · ${label} · Family Recipes"`)
+      await seed('T', tag, ['Dinner'], ['Fish'])
+      expect(await (await call(`/r/${ID}`)).text()).toContain(`content="Dinner · Fish · ${label} · Family Recipes"`)
     }
   })
 
@@ -110,7 +119,7 @@ describe('escaping', () => {
 })
 
 describe('no leakage', () => {
-  it('shows nothing beyond title, time label and categories', async () => {
+  it('shows nothing beyond title, time label, meals and food types', async () => {
     await seed()
     const res = await call(`/r/${ID}`)
     const all = `${await res.text()}\n${headerText(res)}`

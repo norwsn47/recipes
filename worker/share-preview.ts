@@ -1,9 +1,9 @@
 // Public share-preview page, GET/HEAD /r/:id. The ONLY unauthenticated recipe route.
-// It exposes the title, time label and categories of one recipe and nothing else, so chat apps can
+// It exposes the title, time label, meals and food types of one recipe and nothing else, so chat apps can
 // show a link preview. People then follow the redirect to /recipes/:id, which needs sign-in.
 import { errorResponse } from './http'
 import type { AppEnv } from './http'
-import { TIME_TAGS, sortCategories } from './recipe-validation'
+import { TIME_TAGS, sortFoodTypes, sortMeals } from './recipe-validation'
 import type { TimeTag } from './recipe-validation'
 
 /** Same character class and length as the /api/recipes/:id routes. */
@@ -45,22 +45,25 @@ interface Preview {
 interface ShareRow {
   title: string
   time_tag: string
-  categories: string | null
+  meals: string | null
+  food_types: string | null
 }
 
 async function lookup(env: AppEnv, id: string): Promise<ShareRow | null> {
-  // One read by primary key. Only the three public fields are selected.
+  // One read by primary key. Only the public fields are selected.
   return env.DB.prepare(
     `SELECT r.title, r.time_tag,
-            (SELECT group_concat(category) FROM recipe_categories WHERE recipe_id = r.id) AS categories
+            (SELECT group_concat(meal) FROM recipe_meals WHERE recipe_id = r.id) AS meals,
+            (SELECT group_concat(food_type) FROM recipe_food_types WHERE recipe_id = r.id) AS food_types
      FROM recipes r WHERE r.id = ?1`,
   ).bind(id).first<ShareRow>()
 }
 
 function previewFor(row: ShareRow, id: string): Preview {
   const label = (TIME_TAGS as readonly string[]).includes(row.time_tag) ? SHARE_TIME_LABELS[row.time_tag as TimeTag] : ''
-  const cats = sortCategories((row.categories ?? '').split(',')).join(', ')
-  const description = [cats, label, SITE].filter(Boolean).join(' · ')
+  const meals = sortMeals((row.meals ?? '').split(',')).join(', ')
+  const foodTypes = sortFoodTypes((row.food_types ?? '').split(',')).join(', ')
+  const description = [meals, foodTypes, label, SITE].filter(Boolean).join(' · ')
   return { title: row.title, description, path: `/recipes/${id}` }
 }
 

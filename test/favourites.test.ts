@@ -6,7 +6,7 @@ beforeAll(setupGoogleMock)
 beforeEach(resetDb)
 
 interface Recipe { id: string; title: string; favourite: boolean }
-const valid = { title: 'Pasta bake', timeTag: 'Around 1 hr', categories: ['Chicken'], notes: 'Bake it' }
+const valid = { title: 'Pasta bake', timeTag: 'Around 1 hr', meals: ['Dinner'], foodTypes: ['Chicken'], notes: 'Bake it' }
 
 const send = (cookie: string, method: string, path: string, body?: unknown, e: AppEnv = baseEnv) =>
   call(path, {
@@ -111,11 +111,13 @@ describe('favourites', () => {
     const { cookie } = await signIn()
     const a = await makeRecipe(cookie, { title: 'Chicken pie' })
     await makeRecipe(cookie, { title: 'Chicken stew' })
-    const c = await makeRecipe(cookie, { title: 'Fish pie', categories: ['Fish'] })
+    const c = await makeRecipe(cookie, { title: 'Fish pie', foodTypes: ['Fish'] })
     await fav(cookie, a.id)
     await fav(cookie, c.id)
     expect((await list(cookie, '?favourites=1')).map((r) => r.title).sort()).toEqual(['Chicken pie', 'Fish pie'])
-    expect((await list(cookie, '?favourites=1&categories=Chicken&q=pie')).map((r) => r.title)).toEqual(['Chicken pie'])
+    expect((await list(cookie, '?favourites=1&foodType=Chicken&q=pie')).map((r) => r.title)).toEqual(['Chicken pie'])
+    expect((await list(cookie, '?favourites=1&meal=Dinner&foodType=Fish')).map((r) => r.title)).toEqual(['Fish pie'])
+    expect(await list(cookie, '?favourites=1&meal=Dessert')).toEqual([])
     expect(await list(cookie)).toHaveLength(3)
   })
 

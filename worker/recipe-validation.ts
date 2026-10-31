@@ -1,12 +1,12 @@
 // Server-side validation for recipe writes. Pure functions: nothing here touches the database.
 
 export const TIME_TAGS = ['Less than 30 mins', 'Around 1 hr', 'Extensive prep'] as const
-export const CATEGORIES = [
-  'Breakfast', 'Chicken', 'Fish', 'Pork', 'Beef', 'Lamb', 'Dessert', 'Baking', 'Other',
-] as const
+export const MEALS = ['Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Baking'] as const
+export const FOOD_TYPES = ['Chicken', 'Fish', 'Pork', 'Beef', 'Lamb', 'Vegetarian'] as const
 
 export type TimeTag = (typeof TIME_TAGS)[number]
-export type Category = (typeof CATEGORIES)[number]
+export type Meal = (typeof MEALS)[number]
+export type FoodType = (typeof FOOD_TYPES)[number]
 
 export const MAX_TITLE = 100
 export const MAX_LINK = 2000
@@ -17,7 +17,8 @@ export const MAX_BODY_BYTES = 16 * 1024
 export interface RecipeInput {
   title: string
   timeTag: TimeTag
-  categories: Category[]
+  meals: Meal[]
+  foodTypes: FoodType[]
   link: string | null
   notes: string | null
 }
@@ -25,11 +26,21 @@ export interface RecipeInput {
 export type FieldErrors = Record<string, string>
 
 export const isTimeTag = (v: unknown): v is TimeTag => TIME_TAGS.includes(v as TimeTag)
-export const isCategory = (v: unknown): v is Category => CATEGORIES.includes(v as Category)
+export const isMeal = (v: unknown): v is Meal => MEALS.includes(v as Meal)
+export const isFoodType = (v: unknown): v is FoodType => FOOD_TYPES.includes(v as FoodType)
 
-/** Categories in the fixed list's order (stable output regardless of request order). */
-export const sortCategories = (cats: readonly string[]): Category[] =>
-  CATEGORIES.filter((c) => cats.includes(c))
+/** Tags in the fixed list's order (stable output regardless of request or row order). */
+export const sortMeals = (meals: readonly string[]): Meal[] => MEALS.filter((m) => meals.includes(m))
+export const sortFoodTypes = (types: readonly string[]): FoodType[] => FOOD_TYPES.filter((t) => types.includes(t))
+
+/** Validates one tag list: array, known values, no duplicates. Returns an error message or null. */
+function tagListError(raw: unknown[], known: readonly string[], label: string): string | null {
+  if (!raw.every((v) => typeof v === 'string' && known.includes(v))) {
+    return `${label} must come from: ${known.join(', ')}.`
+  }
+  if (new Set(raw).size !== raw.length) return `${label} must not repeat a value.`
+  return null
+}
 
 /**
  * Content rule: at least one of link, notes or files. Stage B passes the file count (on edit,
@@ -92,15 +103,28 @@ export function validateRecipeInput(
   if (!isTimeTag(b.timeTag)) errors.timeTag = `Choose one time: ${TIME_TAGS.join(', ')}.`
   else timeTag = b.timeTag
 
-  let categories: Category[] = []
-  if (!Array.isArray(b.categories) || b.categories.length === 0) {
-    errors.categories = 'Choose at least one category.'
-  } else if (b.categories.length > CATEGORIES.length * 4) {
-    errors.categories = 'Too many categories.'
-  } else if (!b.categories.every(isCategory)) {
-    errors.categories = `Categories must come from: ${CATEGORIES.join(', ')}.`
+  if ('categories' in b) {
+    errors.categories = 'Categories are no longer used. Send meals and foodTypes instead.'
+  }
+
+  let meals: Meal[] = []
+  if (!Array.isArray(b.meals) || b.meals.length === 0) {
+    errors.meals = 'Choose at least one meal.'
   } else {
-    categories = sortCategories(b.categories) // duplicates collapse
+    const bad = tagListError(b.meals, MEALS, 'Meals')
+    if (bad) errors.meals = bad
+    else meals = sortMeals(b.meals as string[])
+  }
+
+  let foodTypes: FoodType[] = []
+  if (b.foodTypes !== undefined && b.foodTypes !== null) {
+    if (!Array.isArray(b.foodTypes)) {
+      errors.foodTypes = 'Food types must be a list.'
+    } else {
+      const bad = tagListError(b.foodTypes, FOOD_TYPES, 'Food types')
+      if (bad) errors.foodTypes = bad
+      else foodTypes = sortFoodTypes(b.foodTypes as string[])
+    }
   }
 
   const link = optionalText(b.link, 'link', 'Link', MAX_LINK, errors)
@@ -115,5 +139,5 @@ export function validateRecipeInput(
   }
 
   if (Object.keys(errors).length > 0) return { ok: false, errors }
-  return { ok: true, value: { title, timeTag, categories, link, notes } }
+  return { ok: true, value: { title, timeTag, meals, foodTypes, link, notes } }
 }

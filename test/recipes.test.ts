@@ -6,11 +6,11 @@ beforeAll(setupGoogleMock)
 beforeEach(resetDb)
 
 interface Recipe {
-  id: string; title: string; timeTag: string; categories: string[]; addedBy: string
+  id: string; title: string; timeTag: string; meals: string[]; foodTypes: string[]; addedBy: string
   canEdit: boolean; createdAt: string; hasFiles: boolean
   link?: string | null; notes?: string | null
 }
-const valid = { title: 'Pasta bake', timeTag: 'Around 1 hr', categories: ['Chicken'], notes: 'Bake it' }
+const valid = { title: 'Pasta bake', timeTag: 'Around 1 hr', meals: ['Dinner'], foodTypes: ['Chicken'], notes: 'Bake it' }
 
 const send = (cookie: string, method: string, path: string, body?: unknown, e: AppEnv = baseEnv) =>
   call(path, {
@@ -53,11 +53,11 @@ describe('auth and CSRF', () => {
 describe('create and read', () => {
   it('creates, returns 201 with session identity, and appears in list and detail', async () => {
     const { cookie, userId } = await signIn({ name: 'Cook One Smith' })
-    const res = await create(cookie, { ...valid, link: ' https://example.com/r ', categories: ['Fish', 'Chicken'] })
+    const res = await create(cookie, { ...valid, link: ' https://example.com/r ', meals: ['Dinner', 'Breakfast'], foodTypes: ['Fish', 'Chicken'] })
     expect(res.status).toBe(201)
     const { recipe } = (await res.json()) as { recipe: Recipe }
     expect(recipe).toMatchObject({
-      title: 'Pasta bake', timeTag: 'Around 1 hr', categories: ['Chicken', 'Fish'], addedBy: 'Cook',
+      title: 'Pasta bake', timeTag: 'Around 1 hr', meals: ['Breakfast', 'Dinner'], foodTypes: ['Chicken', 'Fish'], addedBy: 'Cook',
       canEdit: true, hasFiles: false,
       link: 'https://example.com/r', notes: 'Bake it',
     })
@@ -125,7 +125,8 @@ describe('validation', () => {
     expect(body.error.code).toBe('validation_failed')
     expect(body.error.fields[field]).toBeTruthy()
     expect(await rowCount('recipes')).toBe(0)
-    expect(await rowCount('recipe_categories')).toBe(0)
+    expect(await rowCount('recipe_meals')).toBe(0)
+    expect(await rowCount('recipe_food_types')).toBe(0)
   }
 
   it('title: required, trimmed, max 100', async () => {
@@ -144,20 +145,39 @@ describe('validation', () => {
     await rejects({ timeTag: ['Around 1 hr'] }, 'timeTag')
     await rejects({ timeTag: 'around 1 hr' }, 'timeTag')
   })
-  it('categories: non-empty array from the fixed list, case-exact', async () => {
-    await rejects({ categories: undefined }, 'categories')
-    await rejects({ categories: [] }, 'categories')
-    await rejects({ categories: 'Chicken' }, 'categories')
-    await rejects({ categories: ['Vegan'] }, 'categories')
-    await rejects({ categories: ['chicken'] }, 'categories')
-    await rejects({ categories: [''] }, 'categories')
-    await rejects({ categories: ['Chicken', 7] }, 'categories')
+  it('meals: required, non-empty array from the fixed list, case-exact, no duplicates', async () => {
+    await rejects({ meals: undefined }, 'meals')
+    await rejects({ meals: [] }, 'meals')
+    await rejects({ meals: 'Dinner' }, 'meals')
+    await rejects({ meals: ['Supper'] }, 'meals')
+    await rejects({ meals: ['dinner'] }, 'meals')
+    await rejects({ meals: ['Chicken'] }, 'meals')
+    await rejects({ meals: [''] }, 'meals')
+    await rejects({ meals: ['Dinner', 7] }, 'meals')
+    await rejects({ meals: ['Dinner', 'Dinner'] }, 'meals')
   })
-  it('categories: duplicates collapse', async () => {
+  it('food types: optional, known values only, no duplicates', async () => {
+    await rejects({ foodTypes: 'Fish' }, 'foodTypes')
+    await rejects({ foodTypes: ['Other'] }, 'foodTypes')
+    await rejects({ foodTypes: ['fish'] }, 'foodTypes')
+    await rejects({ foodTypes: ['Fish', 3] }, 'foodTypes')
+    await rejects({ foodTypes: ['Fish', 'Fish'] }, 'foodTypes')
     const { cookie } = await signIn()
-    const r = await makeRecipe(cookie, { categories: ['Fish', 'Fish', 'Beef'] })
-    expect(r.categories).toEqual(['Fish', 'Beef'])
-    expect(await rowCount('recipe_categories')).toBe(2)
+    expect((await makeRecipe(cookie, { foodTypes: undefined })).foodTypes).toEqual([])
+    expect((await makeRecipe(cookie, { foodTypes: [] })).foodTypes).toEqual([])
+    expect((await makeRecipe(cookie, { foodTypes: ['Vegetarian', 'Lamb'] })).foodTypes).toEqual(['Lamb', 'Vegetarian'])
+  })
+  it('the old categories field is rejected, not ignored', async () => {
+    await rejects({ categories: ['Chicken'] }, 'categories')
+    await rejects({ categories: [] }, 'categories')
+  })
+  it('meals and food types come back in list order whatever order was sent', async () => {
+    const { cookie } = await signIn()
+    const r = await makeRecipe(cookie, { meals: ['Baking', 'Lunch', 'Breakfast'], foodTypes: ['Lamb', 'Chicken'] })
+    expect(r.meals).toEqual(['Breakfast', 'Lunch', 'Baking'])
+    expect(r.foodTypes).toEqual(['Chicken', 'Lamb'])
+    expect(await rowCount('recipe_meals')).toBe(3)
+    expect(await rowCount('recipe_food_types')).toBe(2)
   })
   it('link: http(s) only, max 2000', async () => {
     await rejects({ link: 'javascript:alert(1)' }, 'link')
@@ -203,27 +223,28 @@ describe('validation', () => {
 })
 
 describe('edit and delete', () => {
-  it('owner can replace every field including categories', async () => {
+  it('owner can replace every field including meals and food types', async () => {
     const { cookie } = await signIn()
-    const r = await makeRecipe(cookie, { categories: ['Chicken', 'Fish'] })
+    const r = await makeRecipe(cookie, { meals: ['Dinner', 'Lunch'], foodTypes: ['Chicken', 'Fish'] })
     const res = await send(cookie, 'PUT', `/api/recipes/${r.id}`, {
-      title: 'New', timeTag: 'Extensive prep', categories: ['Dessert'], link: 'https://example.com', notes: '',
+      title: 'New', timeTag: 'Extensive prep', meals: ['Dessert'], foodTypes: [], link: 'https://example.com', notes: '',
     })
     expect(res.status).toBe(200)
     const { recipe } = (await res.json()) as { recipe: Recipe }
     expect(recipe).toMatchObject({
-      title: 'New', timeTag: 'Extensive prep', categories: ['Dessert'], link: 'https://example.com', notes: null, createdAt: r.createdAt,
+      title: 'New', timeTag: 'Extensive prep', meals: ['Dessert'], foodTypes: [], link: 'https://example.com', notes: null, createdAt: r.createdAt,
     })
-    expect(await rowCount('recipe_categories')).toBe(1)
+    expect(await rowCount('recipe_meals')).toBe(1)
+    expect(await rowCount('recipe_food_types')).toBe(0)
   })
 
-  it('failed edit leaves the recipe unchanged; cannot remove the last category', async () => {
+  it('failed edit leaves the recipe unchanged; cannot remove the last meal', async () => {
     const { cookie } = await signIn()
     const r = await makeRecipe(cookie)
-    const res = await send(cookie, 'PUT', `/api/recipes/${r.id}`, { ...valid, title: 'Changed', categories: [] })
+    const res = await send(cookie, 'PUT', `/api/recipes/${r.id}`, { ...valid, title: 'Changed', meals: [] })
     expect(res.status).toBe(400)
     const after = (await (await send(cookie, 'GET', `/api/recipes/${r.id}`)).json()) as { recipe: Recipe }
-    expect(after.recipe).toMatchObject({ title: 'Pasta bake', categories: ['Chicken'] })
+    expect(after.recipe).toMatchObject({ title: 'Pasta bake', meals: ['Dinner'], foodTypes: ['Chicken'] })
   })
 
   it('edit cannot change the owner', async () => {
@@ -250,12 +271,13 @@ describe('edit and delete', () => {
     expect((await send(b.cookie, 'DELETE', '/api/recipes/missing')).status).toBe(404)
   })
 
-  it('delete removes the recipe and its category rows; detail is then 404', async () => {
+  it('delete removes the recipe and its tag rows; detail is then 404', async () => {
     const { cookie } = await signIn()
-    const r = await makeRecipe(cookie, { categories: ['Fish', 'Beef'] })
+    const r = await makeRecipe(cookie, { meals: ['Dinner', 'Lunch'], foodTypes: ['Fish', 'Beef'] })
     expect((await send(cookie, 'DELETE', `/api/recipes/${r.id}`)).status).toBe(200)
     expect((await send(cookie, 'GET', `/api/recipes/${r.id}`)).status).toBe(404)
-    expect(await rowCount('recipe_categories')).toBe(0)
+    expect(await rowCount('recipe_meals')).toBe(0)
+    expect(await rowCount('recipe_food_types')).toBe(0)
   })
 })
 
@@ -263,33 +285,43 @@ describe('filter and search', () => {
   let cookie: string
   beforeEach(async () => {
     cookie = (await signIn()).cookie
-    const seed: [string, string, string[]][] = [
-      ['Chicken Pasta', 'Around 1 hr', ['Chicken']],
-      ['Fish Pie', 'Extensive prep', ['Fish']],
-      ['Quick PASTA salad', 'Less than 30 mins', ['Chicken', 'Other']],
-      ['Pancakes', 'Less than 30 mins', ['Breakfast', 'Baking']],
-      ['100% beef_stew', 'Extensive prep', ['Beef']],
+    const seed: [string, string, string[], string[]][] = [
+      ['Chicken Pasta', 'Around 1 hr', ['Dinner'], ['Chicken']],
+      ['Fish Pie', 'Extensive prep', ['Dinner', 'Lunch'], ['Fish']],
+      ['Quick PASTA salad', 'Less than 30 mins', ['Lunch'], ['Chicken', 'Vegetarian']],
+      ['Pancakes', 'Less than 30 mins', ['Breakfast', 'Baking'], []],
+      ['100% beef_stew', 'Extensive prep', ['Dinner'], ['Beef']],
     ]
-    for (const [title, timeTag, categories] of seed) await makeRecipe(cookie, { title, timeTag, categories })
+    for (const [title, timeTag, meals, foodTypes] of seed) await makeRecipe(cookie, { title, timeTag, meals, foodTypes })
   })
   const titles = async (q: string) => (await list(cookie, q)).map((r) => r.title).sort()
 
   it('no filters returns everything', async () => expect(await titles('')).toHaveLength(5))
   it('time tag', async () => expect(await titles('?time=Less%20than%2030%20mins')).toEqual(['Pancakes', 'Quick PASTA salad']))
-  it('single category', async () => expect(await titles('?categories=Chicken')).toEqual(['Chicken Pasta', 'Quick PASTA salad']))
-  it('multiple categories are any-of (comma and repeated)', async () => {
-    expect(await titles('?categories=Chicken,Fish')).toEqual(['Chicken Pasta', 'Fish Pie', 'Quick PASTA salad'])
-    expect(await titles('?categories=Chicken&categories=Fish')).toHaveLength(3)
+  it('meal filter (a recipe with several meals matches each, listed once)', async () => {
+    expect(await titles('?meal=Dinner')).toEqual(['100% beef_stew', 'Chicken Pasta', 'Fish Pie'])
+    expect(await titles('?meal=Lunch')).toEqual(['Fish Pie', 'Quick PASTA salad'])
+    expect(await titles('?meal=Baking')).toEqual(['Pancakes'])
+    expect(await titles('?meal=Dessert')).toEqual([])
   })
-  it('a recipe with several matching categories is listed once', async () =>
-    expect(await titles('?categories=Chicken,Other')).toEqual(['Chicken Pasta', 'Quick PASTA salad']))
+  it('food type filter', async () => {
+    expect(await titles('?foodType=Chicken')).toEqual(['Chicken Pasta', 'Quick PASTA salad'])
+    expect(await titles('?foodType=Vegetarian')).toEqual(['Quick PASTA salad'])
+    expect(await titles('?foodType=Lamb')).toEqual([])
+  })
+  it('empty meal and foodType mean no filter', async () => expect(await titles('?meal=&foodType=')).toHaveLength(5))
+  it('meal and food type AND together', async () => {
+    expect(await titles('?meal=Dinner&foodType=Chicken')).toEqual(['Chicken Pasta'])
+    expect(await titles('?meal=Lunch&foodType=Chicken')).toEqual(['Quick PASTA salad'])
+    expect(await titles('?meal=Breakfast&foodType=Chicken')).toEqual([])
+  })
   it('search is case-insensitive substring of the title', async () => {
     expect(await titles('?q=pasta')).toEqual(['Chicken Pasta', 'Quick PASTA salad'])
     expect(await titles('?q=ASTA%20SAL')).toEqual(['Quick PASTA salad'])
   })
-  it('ANDs time, category and search', async () => {
-    expect(await titles('?time=Less%20than%2030%20mins&categories=Chicken&q=pasta')).toEqual(['Quick PASTA salad'])
-    expect(await titles('?time=Around%201%20hr&categories=Fish')).toEqual([])
+  it('ANDs time, meal, food type and search', async () => {
+    expect(await titles('?time=Less%20than%2030%20mins&meal=Lunch&foodType=Chicken&q=pasta')).toEqual(['Quick PASTA salad'])
+    expect(await titles('?time=Around%201%20hr&foodType=Fish')).toEqual([])
   })
   it('empty result is an empty list', async () => expect(await titles('?q=zzz')).toEqual([]))
   it('LIKE wildcards in q are literal characters', async () => {
@@ -300,7 +332,11 @@ describe('filter and search', () => {
   })
   it('rejects unknown filter values', async () => {
     expect((await send(cookie, 'GET', '/api/recipes?time=Fast')).status).toBe(400)
-    expect((await send(cookie, 'GET', '/api/recipes?categories=Vegan')).status).toBe(400)
+    for (const q of ['meal=Chicken', 'meal=dinner', 'meal=Dinner,Lunch', 'foodType=Other', 'foodType=Dinner', 'foodType=Fish,Beef']) {
+      const res = await send(cookie, 'GET', `/api/recipes?${q}`)
+      expect(res.status, q).toBe(400)
+      expect(((await res.json()) as { error: { code: string } }).error.code).toBe('invalid_filter')
+    }
   })
   it('filters list is not affected by SQL in q', async () => expect(await titles("?q=' OR 1=1 --")).toEqual([]))
 })
@@ -322,11 +358,11 @@ describe('per-user recipe cap', () => {
       error: { code: 'recipe_limit_reached', message: 'You have reached the limit of 50 recipes. Delete one to add another.' },
     })
     expect(await rowCount('recipes')).toBe(50)
-    expect(await rowCount('recipe_categories')).toBe(0)
+    expect(await rowCount('recipe_meals')).toBe(0)
     // Another user is not affected.
     expect((await create(a.cookie, valid)).status).toBe(201)
     // Editing still works at the cap.
-    await baseEnv.DB.prepare("INSERT INTO recipe_categories (recipe_id, category) VALUES ('seed-0', 'Fish')").run()
+    await baseEnv.DB.prepare("INSERT INTO recipe_meals (recipe_id, meal) VALUES ('seed-0', 'Lunch')").run()
     expect((await send(cookie, 'PUT', '/api/recipes/seed-0', { ...valid, title: 'Edited' })).status).toBe(200)
     // Deleting frees the slot.
     expect((await send(cookie, 'DELETE', '/api/recipes/seed-1')).status).toBe(200)
