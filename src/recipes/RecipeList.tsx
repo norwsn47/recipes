@@ -1,104 +1,45 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router-dom'
-import { Badge, Banner, Button, Card, Input, SectionLabel } from '@design-system/components'
+import { Banner, Button, Input, SectionLabel } from '@design-system/components'
 import { useAuth } from '../auth/AuthContext'
-import { linkHostname, shortDate } from '../lib/format'
-import { FOOD_TYPES, MEALS, TIME_TAGS, listRecipes, timeLabel } from '../lib/recipes'
-import type { FoodType, Meal, RecipeSummary, TimeTag } from '../lib/recipes'
-import { FavouriteButton } from './FavouriteButton'
+import { EVERYTHING_PATH, FAVOURITES_PATH, applyFilters, justAdded, mealPath, rowLine, tileCounts } from '../lib/grouping'
+import type { BackState } from '../lib/grouping'
+import { MEALS, listRecipes } from '../lib/recipes'
+import type { RecipeSummary } from '../lib/recipes'
 import { Notice } from './Notice'
+import { RecipeListRow } from './RecipeListRow'
 import { favourites } from './favouritesStore'
-import { FilterChip } from './FilterChip'
-import { ShareButton } from './ShareButton'
-
-const SEARCH_DEBOUNCE_MS = 300
 
 type Result = { key: string; recipes: RecipeSummary[] } | { key: string; failed: true }
 
-function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
-  // Compact meta (owner decision): first name and short date, plus a paperclip when there are files.
-  const domain = recipe.link ? linkHostname(recipe.link) : null
+const HOME_BACK: BackState = { from: { label: 'All meals', to: '/' } }
+const countText = (n: number) => `${n} ${n === 1 ? 'recipe' : 'recipes'}`
+
+const tileBase = 'flex min-h-22 flex-col justify-between rounded-lg p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring'
+const tileQuiet = tileBase + ' bg-muted text-foreground hover:bg-accent hover:text-accent-foreground'
+
+function Tile({ to, name, count, className, children }: { to: string; name: string; count: number; className: string; children?: React.ReactNode }) {
   return (
-    <li>
-      {/* p-4! overrides Card's own p-6 (cn does not merge classes). */}
-      <Card className="relative p-4! focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring">
-        {/* Share and the heart are siblings of the link (never nested in it), above the link's card-sized overlay. */}
-        <ShareButton recipe={recipe} iconClassName="size-[18px]" onClick={(e) => e.stopPropagation()} className="absolute right-12 top-1 z-10" />
-        <FavouriteButton recipeId={recipe.id} favourite={recipe.favourite} describedBy={`recipe-title-${recipe.id}`} iconClassName="size-[18px]" className="absolute right-1 top-1 z-10" />
-        <h3 className="pr-[6.25rem] text-[20px] leading-tight">
-          <Link id={`recipe-title-${recipe.id}`} to={`/recipes/${recipe.id}`} className="outline-none after:absolute after:inset-0">
-            {recipe.title}
-          </Link>
-        </h3>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <Badge variant="tint">{timeLabel(recipe.timeTag)}</Badge>
-          {recipe.meals.map((m) => (
-            <Badge key={m} variant="tint">{m}</Badge>
-          ))}
-          {recipe.foodTypes.map((f) => (
-            <Badge key={f} variant="tint">{f}</Badge>
-          ))}
-        </div>
-        {domain && (
-          // A sibling of the title link, above its overlay, so tapping it never opens the detail page.
-          <a
-            href={recipe.link ?? undefined}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="relative z-10 -mt-1 -mb-2 flex w-fit min-h-11 max-w-full items-center gap-1.5 rounded-sm text-sm font-medium text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          >
-            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-            </svg>
-            <span className="min-w-0 max-w-56 truncate">{domain}</span>
-            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-              <path d="M7 17 17 7M8 7h9v9" />
-            </svg>
-            <span className="sr-only">(opens in a new tab)</span>
-          </a>
-        )}
-        <p className={(domain ? "mt-1" : "mt-2") + " flex items-center gap-1.5 text-sm text-muted-foreground"}>
-          <span>{recipe.addedBy} · {shortDate(recipe.createdAt)}</span>
-          {recipe.hasFiles && (
-            <>
-              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-              </svg>
-              <span className="sr-only">Has files</span>
-            </>
-          )}
-        </p>
-      </Card>
-    </li>
+    <Link to={to} className={className}>
+      <span className="flex items-center justify-between gap-2 text-xl font-bold leading-tight">{name}{children}</span>
+      <span className="text-[15px]">{countText(count)}</span>
+    </Link>
   )
 }
 
 export function RecipeList() {
   const { status } = useAuth()
-  const [time, setTime] = useState<TimeTag | null>(null)
-  const [meal, setMeal] = useState<Meal | null>(null)
-  const [foodType, setFoodType] = useState<FoodType | null>(null)
-  const [onlyFavourites, setOnlyFavourites] = useState(false)
-  const [addedBy, setAddedBy] = useState<string | null>(null)
-  const [moreOpen, setMoreOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const [q, setQ] = useState('')
   const [attempt, setAttempt] = useState(0)
   const [result, setResult] = useState<Result | null>(null)
+  const [searching, setSearching] = useState(false)
+  const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    const t = setTimeout(() => setQ(search), SEARCH_DEBOUNCE_MS)
-    return () => clearTimeout(t)
-  }, [search])
-
-  // Refetch after signing back in (status returns to signed-in), after a retry, or when a filter changes.
-  const key = JSON.stringify([time, meal, foodType, q.trim(), onlyFavourites, attempt, status === 'signed-in'])
+  // Refetch after signing back in or after a retry. The full list is loaded once; search filters it in the browser.
+  const key = JSON.stringify([attempt, status === 'signed-in'])
   useEffect(() => {
     const controller = new AbortController()
     const started = favourites.mark()
-    listRecipes({ time, meal, foodType, q, favourites: onlyFavourites }, controller.signal).then(
+    listRecipes({ time: null, meal: null, foodType: null, q: '' }, controller.signal).then(
       (recipes) => {
         // Fresh server values win over any favourite change that settled before this fetch began.
         recipes.forEach((r) => favourites.seed(r.id, started))
@@ -109,48 +50,32 @@ export function RecipeList() {
       },
     )
     return () => controller.abort()
-  }, [key, time, meal, foodType, q, onlyFavourites])
+  }, [key])
+
+  useSyncExternalStore(favourites.subscribe, favourites.getVersion)
 
   const current = result && result.key === key ? result : null
-  // "Added by" filters in the browser on the first name the list already carries, so it needs no request
-  // and no owner ids or full names leave the server. Two people with the same first name count as one.
-  const shown = current && 'recipes' in current
-    ? addedBy === null ? current.recipes : current.recipes.filter((r) => r.addedBy === addedBy)
-    : null
-  // Names come from the last loaded list (kept while the next one loads, so the chips do not flicker).
-  // The selected name always stays, so it can be cleared even when no current result matches it.
-  const loaded = result && 'recipes' in result ? result.recipes.map((r) => r.addedBy) : []
-  const people = [...new Set([...loaded, ...(addedBy === null ? [] : [addedBy])])].sort((a, b) => a.localeCompare(b))
-  const moreOn = (time !== null ? 1 : 0) + (addedBy !== null ? 1 : 0) + (foodType !== null ? 1 : 0)
-  const otherFilters = time !== null || meal !== null || foodType !== null || q.trim() !== '' || addedBy !== null
-  const filtering = otherFilters || onlyFavourites
+  const recipes = current && 'recipes' in current ? current.recipes : null
+  const favouriteIds = new Set(recipes ? recipes.filter((r) => favourites.get(r.id, r.favourite)).map((r) => r.id) : [])
+  const counts = recipes ? tileCounts(recipes, favouriteIds) : null
+  const results = recipes && searching ? applyFilters(recipes, {}, search) : null
+  const newest = recipes ? justAdded(recipes, 3) : []
 
-  const statusText =
-    shown
-      ? shown.length === 0
-        ? filtering ? 'No matching recipes' : 'No recipes saved yet'
-        : `${shown.length} ${shown.length === 1 ? 'recipe' : 'recipes'}`
-      : ''
-
-  function toggleMeal(m: Meal) {
-    // One meal at a time (owner decision): tapping another switches, tapping the selected one clears.
-    setMeal((prev) => (prev === m ? null : m))
-  }
-  function clearFilters(clearFavourites = true) {
-    setTime(null)
-    setAddedBy(null)
-    setMeal(null)
-    setFoodType(null)
+  function cancelSearch() {
     setSearch('')
-    setQ('')
-    if (clearFavourites) setOnlyFavourites(false)
+    setSearching(false)
+    document.getElementById('recipe-search')?.blur()
   }
+
+  const statusText = results
+    ? results.length === 0 ? 'No matching recipes' : countText(results.length)
+    : ''
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex flex-col gap-4">
-        {/* No visible label (owner decision): the icon and placeholder say what it does; aria-label names it. */}
-        <div className="relative">
+    <section className="flex flex-col gap-4" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))' }}>
+      {/* No visible label: the icon and placeholder say what it does; aria-label names it. */}
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
           <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
             <circle cx="11" cy="11" r="7" />
             <path d="m20 20-3.5-3.5" />
@@ -158,112 +83,95 @@ export function RecipeList() {
           <Input
             id="recipe-search"
             type="search"
-            aria-label="Search recipes by name"
+            aria-label="Search all recipes"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search recipes, e.g. pasta"
+            onFocus={() => setSearching(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault()
+                cancelSearch()
+              }
+            }}
+            placeholder="Search all recipes"
             autoComplete="off"
-            className="pl-10"
+            className={'pl-10 ' + (searching ? 'border-primary' : '')}
           />
         </div>
-        {/* One scrolling row, no visible label (owner decision): Favourites toggle, a divider, then the
-            single-select meals. Bleeds to the screen edge so the cut-off chip hints at more. */}
-        <div role="group" aria-label="Favourites and meal" className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 py-1 [&>*]:shrink-0 [&>*]:whitespace-nowrap">
-          <FilterChip pressed={onlyFavourites} onClick={() => setOnlyFavourites((on) => !on)}>
-            <span aria-hidden="true">♡</span><span className="sr-only">Favourites</span>
-          </FilterChip>
-          <span aria-hidden="true" className="h-6 w-px bg-input" />
-          <FilterChip pressed={meal === null} onClick={() => setMeal(null)}>All</FilterChip>
-          {MEALS.map((m) => (
-            <FilterChip key={m} pressed={meal === m} onClick={() => toggleMeal(m)}>{m}</FilterChip>
-          ))}
-        </div>
-        {/* Time, food type and "Added by" are rarely used, so they sit behind "More filters" (owner decision). The
-            button counts the ones that are on, so a hidden filter is never a surprise. */}
-        {/* -mt-3 against the block's 16px gap, plus the chip row's 4px bottom padding: 8px under the chips. */}
-        <div className="-mt-3">
+        {searching && (
           <button
             type="button"
-            aria-expanded={moreOpen}
-            aria-controls="more-filters"
-            onClick={() => setMoreOpen((open) => !open)}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg text-[15px] font-medium text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            onClick={cancelSearch}
+            className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2 font-semibold text-primary focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring"
           >
-            More filters{moreOn > 0 ? ` (${moreOn} on)` : ''}
-            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={'transition-transform ' + (moreOpen ? 'rotate-180' : '')}>
-              <path d="m6 9 6 6 6-6" />
-            </svg>
+            Cancel
           </button>
-          {moreOpen && (
-            <div id="more-filters" className="mt-2 flex flex-col gap-4">
-              <fieldset className="min-w-0">
-                <legend className="mb-1.5"><SectionLabel>How long it takes</SectionLabel></legend>
-                <div className="flex flex-wrap gap-2">
-                  <FilterChip pressed={time === null} onClick={() => setTime(null)}>All</FilterChip>
-                  {TIME_TAGS.map((t) => (
-                    <FilterChip key={t} pressed={time === t} onClick={() => setTime(t)}>{timeLabel(t)}</FilterChip>
-                  ))}
-                </div>
-              </fieldset>
-              <fieldset className="min-w-0">
-                <legend className="mb-1.5"><SectionLabel>Food type</SectionLabel></legend>
-                <div className="flex flex-wrap gap-2">
-                  <FilterChip pressed={foodType === null} onClick={() => setFoodType(null)}>All</FilterChip>
-                  {FOOD_TYPES.map((f) => (
-                    <FilterChip key={f} pressed={foodType === f} onClick={() => setFoodType(f)}>{f}</FilterChip>
-                  ))}
-                </div>
-              </fieldset>
-              {people.length > 0 && (
-                <fieldset className="min-w-0">
-                  <legend className="mb-1.5"><SectionLabel>Added by</SectionLabel></legend>
-                  <div className="flex flex-wrap gap-2">
-                    <FilterChip pressed={addedBy === null} onClick={() => setAddedBy(null)}>All</FilterChip>
-                    {people.map((p) => (
-                      <FilterChip key={p} pressed={addedBy === p} onClick={() => setAddedBy(p)}>{p}</FilterChip>
-                    ))}
-                  </div>
-                </fieldset>
-              )}
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
-      <div id="recipe-results" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))' }}>
-        <h2 className="sr-only">Recipes</h2>
-        {/* Announces a short summary once results have loaded; stays empty while loading or on error. */}
-        <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">{statusText}</p>
-        {!current && <p className="text-muted-foreground">Loading recipes...</p>}
-        {current && 'failed' in current && (
-          <div className="flex flex-col items-start gap-3">
-            <Banner tone="error" className="w-full">Could not load the recipes. Check your connection and try again.</Banner>
-            <Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>Try again</Button>
-          </div>
-        )}
-        {shown && shown.length === 0 && (
-          onlyFavourites && !otherFilters ? (
-            <p className="text-muted-foreground">Tap <span aria-hidden="true">♡</span><span className="sr-only">the heart</span> on a recipe to save it here</p>
-          ) : filtering ? (
-            <div className="flex flex-col items-start gap-1">
-              <p className="text-lg font-semibold">No matching recipes</p>
-              <button type="button" onClick={() => clearFilters()} className="inline-flex min-h-11 items-center rounded-lg font-semibold text-primary underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Clear filters</button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-start gap-3">
-              <p className="text-lg font-semibold">No recipes saved yet</p>
-              <p className="text-muted-foreground">Tap the green + button to add the first family favourite, with a link, a few notes or a photo.</p>
-            </div>
-          )
-        )}
-        {shown && shown.length > 0 && (
-          <ul className="flex flex-col gap-3">
-            {shown.map((r) => (
-              <RecipeCard key={r.id} recipe={r} />
+      <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">{statusText}</p>
+
+      {!current && <p className="text-muted-foreground">Loading recipes...</p>}
+      {current && 'failed' in current && (
+        <div className="flex flex-col items-start gap-3">
+          <Banner tone="error" className="w-full">Could not load the recipes. Check your connection and try again.</Banner>
+          <Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>Try again</Button>
+        </div>
+      )}
+
+      {recipes && recipes.length === 0 && (
+        <div className="flex flex-col items-start gap-3">
+          <p className="text-lg font-semibold">No recipes saved yet</p>
+          <p className="text-muted-foreground">Tap the green + button to add the first family favourite, with a link, a few notes or a photo.</p>
+        </div>
+      )}
+
+      {results && recipes && recipes.length > 0 && (
+        results.length === 0 ? (
+          <p className="text-lg font-semibold">No matching recipes</p>
+        ) : (
+          <ul>
+            {results.map((r) => (
+              <RecipeListRow key={r.id} id={r.id} title={r.title} line={rowLine(r, 'with-meals')} backState={HOME_BACK} />
             ))}
           </ul>
-        )}
-      </div>
+        )
+      )}
+
+      {!searching && counts && recipes && recipes.length > 0 && (
+        <>
+          <nav aria-label="Browse recipes">
+            <ul className="grid grid-cols-2 gap-3">
+              <li className="col-span-2">
+                <Tile to={FAVOURITES_PATH} name="Favourites" count={counts.favourites} className={tileBase + ' bg-primary text-primary-foreground hover:bg-primary/90'}>
+                  <svg viewBox="0 0 24 24" className="size-6 shrink-0" aria-hidden="true" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+                  </svg>
+                </Tile>
+              </li>
+              {MEALS.map((m) => (
+                <li key={m}>
+                  <Tile to={mealPath(m)} name={m} count={counts.meals[m]} className={tileQuiet + ' h-full'} />
+                </li>
+              ))}
+              <li>
+                <Tile to={EVERYTHING_PATH} name="Everything" count={counts.total} className={tileBase + ' h-full border border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground'} />
+              </li>
+            </ul>
+          </nav>
+
+          {newest.length > 0 && (
+            <section aria-labelledby="just-added">
+              <SectionLabel id="just-added" className="mb-1">Just added</SectionLabel>
+              <ul>
+                {newest.map((r) => (
+                  <RecipeListRow key={r.id} id={r.id} title={r.title} line={r.addedBy.trim()} backState={HOME_BACK} />
+                ))}
+              </ul>
+            </section>
+          )}
+        </>
+      )}
 
       <Notice />
 

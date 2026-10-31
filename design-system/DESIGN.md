@@ -1,5 +1,5 @@
 # Outbuild design system
-Last updated: 18 October 2026
+Last updated: 31 October 2026
 
 A starter template, not a fixed spec. This is the design system every new project starts from: the rules for using `tokens.css` and `components/`. The kit is copied into each project, and from then on the project's copy is edited directly to suit it (colours, type, components, rules). Every UI agent reads this file, so keep it accurate when you change things; there is no separate project `DESIGN.md`.
 
@@ -46,3 +46,4 @@ Where this system departs from the general Outbuild design language on purpose, 
 - **Two accents beyond the brand green:** the amber highlight and the error rust, each with a defined job.
 - **Light only.** There is no dark mode.
 - **Family Recipes shows the Outbuild mark in the settings pop-up**, not on the home screen (owner decision, 18 October 2026).
+- **Home meal tiles use the muted surface** with no border (owner decision, 31 October 2026); only the Everything tile is outlined and Favourites is primary green. Text on them passes contrast; the tile edge itself is deliberately soft.

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Badge, Banner, Button, Dialog, SectionLabel } from '@design-system/components'
 import { useAuth } from '../auth/AuthContext'
 import { shortDate } from '../lib/format'
+import { backTargetFromState } from '../lib/grouping'
 import { ApiError, deleteRecipe, getRecipe, timeLabel } from '../lib/recipes'
 import type { RecipeDetail } from '../lib/recipes'
 import { BackLink } from './BackLink'
@@ -19,6 +20,7 @@ export function RecipeView() {
   const { id = '' } = useParams()
   const { status } = useAuth()
   const navigate = useNavigate()
+  const back = backTargetFromState(useLocation().state)
   const [attempt, setAttempt] = useState(0)
   const [result, setResult] = useState<Result | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -70,13 +72,13 @@ export function RecipeView() {
       <section className="flex flex-col items-start gap-3 py-4">
         <h2 className="text-2xl">Recipe not found</h2>
         <p className="text-muted-foreground">It may have been deleted, or the link is not quite right.</p>
-        <BackLink>Back to all recipes</BackLink>
+        <BackLink to={back.to}>{back.label}</BackLink>
       </section>
     ) : (
       <section className="flex flex-col items-start gap-3 py-4">
         <Banner tone="error" className="w-full">Could not open this recipe. Check your connection and try again.</Banner>
         <Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>Try again</Button>
-        <BackLink>Back to all recipes</BackLink>
+        <BackLink to={back.to}>{back.label}</BackLink>
       </section>
     )
   }

@@ -5,6 +5,10 @@ Last updated: 31 October 2026
 
 ---
 
+## 31 October 2026 - Home screen redesigned into tiles and list pages
+- Decision (owner): Home becomes a search box, a tile grid (Favourites, five meals, Everything) and "Just added" (3 newest across everyone). Each tile opens a list page (`/meals/:meal`, `/everything`, `/favourites`) with plain rows, dropdown filter chips in a bottom sheet, filters kept in the URL query, and "‹ All meals" in the header. The recipe page's back link names where you came from. "All recipes" wording becomes "All meals".
+- Reversal: the meal chip row, the Favourites chip, and the "More filters" panel on Home are removed; Home has no filters. Favourites can no longer be combined with every other filter: its page offers Meal and Time only. The share button leaves the list (it stays on the recipe page).
+
 ## 31 October 2026 - Categories replaced by two tag layers: Meal and Food type
 - Decision (owner): the single category list is replaced by Meal (required, several allowed: Breakfast, Lunch, Dinner, Dessert, Baking) and Food type (optional, several allowed: Chicken, Fish, Pork, Beef, Lamb, Vegetarian). "Other" is dropped. Home filters: meal chips in the main row, food type under "More filters". API fields are `meals` and `foodTypes`; the share preview lists meals then food types.
 - Data mapping (migration 0006): Chicken, Fish, Pork, Beef, Lamb -> meal Dinner and the same food type; Breakfast, Dessert, Baking -> the same meal; a recipe with no meal (e.g. only Other) -> Dinner; Other rows removed.

@@ -286,7 +286,7 @@ export function RecipeForm() {
             <Button variant="secondary" onClick={() => { setLoad('loading'); setAttempt((n) => n + 1) }}>Try again</Button>
           </>
         )}
-        <BackLink>Back to all recipes</BackLink>
+        <BackLink>Back to all meals</BackLink>
       </section>
     )
   }
@@ -319,7 +319,7 @@ export function RecipeForm() {
   if (onStart) {
     return (
       <form ref={formRef} onSubmit={(e) => e.preventDefault()} className="flex flex-col gap-5 pb-8">
-        <div><BackLink>All recipes</BackLink></div>
+        <div><BackLink>All meals</BackLink></div>
         <h2 className="text-3xl">Add a recipe</h2>
         <p className="text-muted-foreground">Where is it from?</p>
         <div className="flex flex-col gap-4">
@@ -337,7 +337,7 @@ export function RecipeForm() {
   return (
     <form ref={formRef} onSubmit={(e) => void onSubmit(e)} noValidate className="flex flex-col gap-6 pb-8">
       <div className="flex flex-wrap items-center justify-between gap-x-4">
-        <BackLink to={cancelTo}>{editing ? 'Back to the recipe' : 'All recipes'}</BackLink>
+        <BackLink to={cancelTo}>{editing ? 'Back to the recipe' : 'All meals'}</BackLink>
         {!editing && (
           <button type="button" className={textButtonClass} onClick={() => { setFocusTarget('choice'); setStep('start') }} disabled={saving}>
             Back to the choices
