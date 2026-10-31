@@ -350,6 +350,20 @@ export function RecipeForm() {
         <Banner tone="error" tabIndex={-1} data-banner="">{banner}</Banner>
       )}
 
+      <Field label="Name" error={errors.title}>
+        <Input
+          value={values.title}
+          maxLength={MAX_TITLE}
+          placeholder="Name this recipe"
+          autoFocus={focusTarget === 'name'}
+          autoComplete="off"
+          onChange={(e) => {
+            nameEdited.current = true
+            set('title', e.target.value)
+          }}
+        />
+      </Field>
+
       {errors.content && <p role="alert" data-invalid="true" tabIndex={-1} className="text-sm font-semibold text-destructive outline-none">{errors.content}</p>}
 
       {linkShown && (
@@ -368,20 +382,6 @@ export function RecipeForm() {
           />
         </Field>
       )}
-
-      <Field label="Name" error={errors.title}>
-        <Input
-          value={values.title}
-          maxLength={MAX_TITLE}
-          placeholder="Name this recipe"
-          autoFocus={focusTarget === 'name'}
-          autoComplete="off"
-          onChange={(e) => {
-            nameEdited.current = true
-            set('title', e.target.value)
-          }}
-        />
-      </Field>
 
       <Group legend="How long does it take?" error={errors.timeTag}>
         {TIME_TAGS.map((t) => (
