@@ -6,11 +6,23 @@ Last updated: 31 October 2026
 > - **Adding:** only something you would actually do - a real bug, a feature idea you asked for, or a manual step you owe. You ask; the project-manager adds genuine follow-ups from a large change; Critical/High review and audit findings are added. Lower findings stay in the chat report until you triage them. Non-blocking review notes are never logged.
 > - **Accepted or won't-fix:** never a to-do. One line in "Known and accepted" below, or a code comment where the issue sits in one place. Reviews and audits read that section and do not re-raise it.
 > - **Entries are one to three lines:** what needs doing, not the history. Nothing here is actioned without explicit instruction.
-> - **IDs are stable and never reused**, even after an item is deleted, so gaps are expected. Next free ID: **#28**.
+> - **IDs are stable and never reused**, even after an item is deleted, so gaps are expected. Next free ID: **#33**.
 
 ---
 
 ## To do
+
+### 32. Design-system candidates from the home tiles
+Dropdown chip, tile, plain list row and the left-aligned "‹ back" header are built in the app (ListPage.tsx, RecipeList.tsx, RecipeListRow.tsx, AppShell.tsx); consider promoting them.
+
+### 29. Remove the unused ShareButton onClick prop
+src/recipes/ShareButton.tsx no longer needs its `onClick` prop.
+
+### 30. Keep the back-link origin through Edit and save
+Editing a recipe and saving drops the router state, so the back link then reads "‹ All meals" instead of the list you came from (RecipeForm.tsx).
+
+### 31. Home search Cancel loses focus
+After Cancel on Home the focus falls to the page body (the Cancel button unmounts); return it to the search box or a stable element (RecipeList.tsx).
 
 ### 8. Replace the deprecated test pool
 @cloudflare/vitest-pool-workers is renamed @cloudflare/vitest-plugin (warning on every test run). Do after the first feature (owner decision); also re-check the dev-only npm audit findings then.

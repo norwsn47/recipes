@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Outlet, useMatch } from 'react-router-dom'
+import { Link, Outlet, useLocation, useMatch } from 'react-router-dom'
 import { isWakeLockSupported } from '../lib/wakeLock'
 import { KeepScreenOn } from '../recipes/KeepScreenOn'
-import { BackLink } from '../recipes/BackLink'
+import { backTargetFromState } from '../lib/grouping'
 import { Banner, Button, Dialog, OutbuildMark } from '@design-system/components'
 import { useAuth } from './AuthContext'
 import { SignInScreen } from './SignInScreen'
@@ -25,6 +25,13 @@ export function AppShell() {
   // On a recipe page the header carries "Keep screen on" instead of the settings gear (owner decision).
   const recipeMatch = useMatch('/recipes/:id')
   const viewingRecipeId = recipeMatch && recipeMatch.params.id !== 'new' ? recipeMatch.params.id : undefined
+  // On the list pages (a meal, Everything, Favourites) "All meals" replaces the app name.
+  const mealMatch = useMatch('/meals/:meal')
+  const everythingMatch = useMatch('/everything')
+  const favouritesMatch = useMatch('/favourites')
+  const onListPage = Boolean(mealMatch || everythingMatch || favouritesMatch)
+  // Where the recipe page's back link goes: the list the visitor came from, or All meals.
+  const back = backTargetFromState(useLocation().state)
   const showKeepScreenOn = Boolean(viewingRecipeId) && typeof navigator !== 'undefined' && isWakeLockSupported(navigator)
   // Stable onClose: the Dialog refocuses its first control whenever onClose changes.
   const closeSettings = useCallback(() => setSettingsOpen(false), [])
@@ -61,7 +68,22 @@ export function AppShell() {
             <>
               {/* On a recipe page the back link replaces the app name (owner decision); the name stays for screen readers. */}
               <h1 className="sr-only">{APP_NAME}</h1>
-              <BackLink />
+              <Link
+                to={back.to}
+                className="-ml-2 inline-flex min-h-11 items-center rounded-lg px-2 text-lg font-semibold text-primary no-underline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring"
+              >
+                <span aria-hidden="true">&lsaquo;&nbsp;</span>{back.label}
+              </Link>
+            </>
+          ) : onListPage ? (
+            <>
+              <h1 className="sr-only">{APP_NAME}</h1>
+              <Link
+                to="/"
+                className="-ml-2 inline-flex min-h-11 items-center rounded-lg px-2 text-lg font-semibold text-primary no-underline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring"
+              >
+                <span aria-hidden="true">&lsaquo;&nbsp;</span>All meals
+              </Link>
             </>
           ) : (
             <h1 className="min-w-0 truncate text-lg">{APP_NAME}</h1>

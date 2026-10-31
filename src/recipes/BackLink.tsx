@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 
-export function BackLink({ to = '/', children = 'All recipes' }: { to?: string; children?: string }) {
+export function BackLink({ to = '/', children = 'All meals' }: { to?: string; children?: string }) {
   return (
     <Link
       to={to}

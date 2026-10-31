@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { AppShell } from './auth/AppShell'
+import { ListPage } from './recipes/ListPage'
 import { RecipeForm } from './recipes/RecipeForm'
 import { RecipeList } from './recipes/RecipeList'
 import { RecipeView } from './recipes/RecipeView'
@@ -15,6 +16,9 @@ export default function App() {
             <Route path="recipes/new" element={<RecipeForm />} />
             <Route path="recipes/:id" element={<RecipeView />} />
             <Route path="recipes/:id/edit" element={<RecipeForm />} />
+            <Route path="meals/:meal" element={<ListPage kind="meal" />} />
+            <Route path="everything" element={<ListPage kind="everything" />} />
+            <Route path="favourites" element={<ListPage kind="favourites" />} />
             <Route path="*" element={<RecipeList />} />
           </Route>
         </Routes>
