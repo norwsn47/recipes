@@ -7,8 +7,9 @@ const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1
 
 /**
  * Full-screen viewer for one file. The content scrolls natively and pinch-zoom is left to the
- * browser (touch-action allows it; index.html does not block user scaling). Escape or the Close
- * button closes it; focus is trapped inside and returned to the trigger; page scroll is locked.
+ * browser (touch-action allows it; index.html does not block user scaling). Escape, the Close
+ * button or a click anywhere outside the image closes it; focus is trapped inside and returned to
+ * the trigger; page scroll is locked.
  */
 export function FileViewer({
   title,
@@ -85,6 +86,9 @@ export function FileViewer({
         aria-label={`${title}, scrollable`}
         className="min-h-0 flex-1 overflow-auto bg-muted p-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
         style={{ touchAction: 'pan-x pan-y pinch-zoom', overscrollBehavior: 'contain' }}
+        onClick={(e) => {
+          if (!(e.target as Element).closest('img')) onClose()
+        }}
       >
         {children}
       </div>
