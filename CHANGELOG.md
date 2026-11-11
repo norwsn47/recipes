@@ -1,9 +1,12 @@
 # CHANGELOG.md
-Last updated: 31 October 2026
+Last updated: 11 November 2026
 > A record of decisions, reversals and notable behaviour changes, newest first. Git history is the full record of everything else, so most changes need no entry here.
 > Whenever you add an entry, update the "Last updated:" date above.
 
 ---
+
+## 11 November 2026 - "Recently viewed" on Home
+- Decision (owner): Home's "Recently added" becomes "Recently viewed": the signed-in person's 3 most recently opened recipes, stored server-side (migration 0007, `recipe_views`) so it follows them across devices. With nothing viewed yet, Home falls back to the 3 newest, labelled "Recently added". Opening a recipe page records the view; it is not rate-limited and never blocks the page.
 
 ## 31 October 2026 - Filter ticklists, + on list pages, "Recently added"
 - Reversal (owner): list-page filter chips open a dropdown ticklist below the chip instead of a bottom sheet. Still one value per filter.

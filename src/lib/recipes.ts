@@ -71,6 +71,8 @@ export interface RecipeSummary {
   hasFiles: boolean
   /** The signed-in user's own favourite state. */
   favourite: boolean
+  /** When the signed-in user last opened this recipe (ISO string), or null if never. Their own value only. */
+  viewedAt: string | null
 }
 
 export interface RecipeDetail extends RecipeSummary {
