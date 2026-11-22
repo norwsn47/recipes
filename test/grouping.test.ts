@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_BACK, EVERYTHING_PATH, FAVOURITES_PATH, applyFilters, backTargetFromState, filtersFor, justAdded, mealFromSlug,
-  mealPath, mealPlural, mealSlug, parseFilters, rowLine, tileCounts, writeFilters,
+  mealPath, mealPlural, mealSlug, parseFilters, recentlyViewed, rowLine, tileCounts, writeFilters,
 } from '../src/lib/grouping'
 import type { PageKind } from '../src/lib/grouping'
 import type { FoodType, Meal, RecipeSummary, TimeTag } from '../src/lib/recipes'
 
 function recipe(id: string, over: Partial<RecipeSummary> = {}): RecipeSummary {
-  return { id, title: id, timeTag: 'Less than 30 mins', meals: ['Dinner'], foodTypes: [], addedBy: 'Will', canEdit: false, createdAt: '2026-10-01T00:00:00Z', link: null, hasFiles: false, favourite: false, ...over }
+  return { id, title: id, timeTag: 'Less than 30 mins', meals: ['Dinner'], foodTypes: [], addedBy: 'Will', canEdit: false, createdAt: '2026-10-01T00:00:00Z', link: null, hasFiles: false, favourite: false, viewedAt: null, ...over }
 }
 const q = (s: string) => new URLSearchParams(s)
 const meal = (m: Meal): PageKind => ({ kind: 'meal', meal: m })
@@ -76,6 +76,42 @@ describe('justAdded', () => {
     expect(justAdded([], 3)).toEqual([])
     expect(justAdded(list, 0)).toEqual([])
     expect(justAdded(list, -2)).toEqual([])
+  })
+})
+
+describe('recentlyViewed', () => {
+  const list = [
+    recipe('never'),
+    recipe('old', { viewedAt: '2026-10-01T00:00:00Z' }),
+    recipe('latest', { viewedAt: '2026-11-05T00:00:00Z' }),
+    recipe('mid', { viewedAt: '2026-10-20T00:00:00Z' }),
+    recipe('mid2', { viewedAt: '2026-10-25T00:00:00Z' }),
+  ]
+  it('returns the n most recently viewed, most recent first', () => {
+    expect(recentlyViewed(list).map((r) => r.id)).toEqual(['latest', 'mid2', 'mid'])
+    expect(recentlyViewed(list, 1).map((r) => r.id)).toEqual(['latest'])
+  })
+  it('excludes recipes never viewed', () => {
+    expect(recentlyViewed(list, 10).map((r) => r.id)).not.toContain('never')
+    expect(recentlyViewed([recipe('a'), recipe('b')])).toEqual([])
+  })
+  it('excludes unparseable dates', () => {
+    expect(recentlyViewed([recipe('bad', { viewedAt: 'nope' }), recipe('ok', { viewedAt: '2026-10-01T00:00:00Z' })]).map((r) => r.id)).toEqual(['ok'])
+  })
+  it('keeps input order on ties', () => {
+    const at = '2026-10-01T00:00:00Z'
+    const tied = [recipe('x', { viewedAt: at }), recipe('y', { viewedAt: at }), recipe('z', { viewedAt: at })]
+    expect(recentlyViewed(tied, 2).map((r) => r.id)).toEqual(['x', 'y'])
+  })
+  it('returns empty for an empty list, zero or negative n', () => {
+    expect(recentlyViewed([])).toEqual([])
+    expect(recentlyViewed(list, 0)).toEqual([])
+    expect(recentlyViewed(list, -1)).toEqual([])
+  })
+  it('does not mutate the input', () => {
+    const copy = [...list]
+    recentlyViewed(list)
+    expect(list).toEqual(copy)
   })
 })
 

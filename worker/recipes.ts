@@ -30,6 +30,7 @@ interface RecipeRow {
   food_types: string | null
   has_files: number
   favourite: number
+  viewed_at: number | null
 }
 
 const SELECT_RECIPE = `
@@ -38,7 +39,8 @@ const SELECT_RECIPE = `
          (SELECT group_concat(meal) FROM recipe_meals WHERE recipe_id = r.id) AS meals,
          (SELECT group_concat(food_type) FROM recipe_food_types WHERE recipe_id = r.id) AS food_types,
          EXISTS (SELECT 1 FROM recipe_files WHERE recipe_id = r.id) AS has_files,
-         EXISTS (SELECT 1 FROM favourites fv WHERE fv.recipe_id = r.id AND fv.user_id = ?) AS favourite
+         EXISTS (SELECT 1 FROM favourites fv WHERE fv.recipe_id = r.id AND fv.user_id = ?) AS favourite,
+         (SELECT viewed_at FROM recipe_views rv WHERE rv.recipe_id = r.id AND rv.user_id = ?) AS viewed_at
   FROM recipes r JOIN users u ON u.id = r.user_id`
 
 /** Same rule as firstName in src/lib/format.ts: the first word, or the whole name if there is none. */
@@ -57,6 +59,7 @@ function summary(row: RecipeRow, user: SessionUser) {
     link: row.link,
     hasFiles: row.has_files === 1,
     favourite: row.favourite === 1, // the signed-in user's own state only
+    viewedAt: row.viewed_at === null ? null : new Date(row.viewed_at).toISOString(), // likewise: never another user's
   }
 }
 
@@ -155,9 +158,9 @@ const readRequest = (request: Request): Promise<{ body: unknown; files: File[] }
     ? readMultipart(request)
     : readJson(request).then((r) => (r instanceof Response ? r : { body: r.body, files: [] }))
 
-// The first bind is always the session user id (for the favourite flag in SELECT_RECIPE).
+// The first two binds are always the session user id (the favourite flag and viewed_at in SELECT_RECIPE).
 async function fetchRecipe(env: AppEnv, userId: string, id: string): Promise<RecipeRow | null> {
-  return env.DB.prepare(`${SELECT_RECIPE} WHERE r.id = ?`).bind(userId, id).first<RecipeRow>()
+  return env.DB.prepare(`${SELECT_RECIPE} WHERE r.id = ?`).bind(userId, userId, id).first<RecipeRow>()
 }
 
 async function loadFiles(env: AppEnv, recipeId: string): Promise<FileRow[]> {
@@ -177,7 +180,7 @@ async function recipeView(env: AppEnv, user: SessionUser, id: string) {
 export async function listRecipes(request: Request, env: AppEnv, user: SessionUser): Promise<Response> {
   const params = new URL(request.url).searchParams
   const where: string[] = []
-  const binds: unknown[] = [user.id] // first: the favourite flag in SELECT_RECIPE
+  const binds: unknown[] = [user.id, user.id] // first two: the favourite flag and viewed_at in SELECT_RECIPE
 
   const time = params.get('time')
   if (time !== null && time !== '') {
@@ -221,7 +224,25 @@ export async function listRecipes(request: Request, env: AppEnv, user: SessionUs
 export async function getRecipe(env: AppEnv, user: SessionUser, id: string): Promise<Response> {
   const recipe = await recipeView(env, user, id)
   if (!recipe) return errorResponse(404, 'not_found', 'Recipe not found')
+  await recordView(env, user, id)
   return json({ recipe })
+}
+
+/**
+ * Upserts the signed-in user's view of a recipe (one row per user and recipe). Deliberately not
+ * behind takeWriteToken: opening a recipe is a read from the user's side. Guarded on the recipe
+ * still existing, and a failure is logged and swallowed so it can never break the page.
+ */
+async function recordView(env: AppEnv, user: SessionUser, id: string): Promise<void> {
+  try {
+    await env.DB.prepare(
+      `INSERT INTO recipe_views (user_id, recipe_id, viewed_at)
+       SELECT ?1, ?2, ?3 WHERE EXISTS (SELECT 1 FROM recipes WHERE id = ?2)
+       ON CONFLICT (user_id, recipe_id) DO UPDATE SET viewed_at = excluded.viewed_at`,
+    ).bind(user.id, id, Date.now()).run()
+  } catch (err) {
+    console.error('recording a recipe view failed', err instanceof Error ? err.message : 'unknown error')
+  }
 }
 
 // Guarded on the recipe existing, so a failed (capped) insert leaves no stray rows.

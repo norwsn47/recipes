@@ -2,7 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router-dom'
 import { Banner, Button, Input, SectionLabel } from '@design-system/components'
 import { useAuth } from '../auth/AuthContext'
-import { EVERYTHING_PATH, FAVOURITES_PATH, applyFilters, justAdded, mealPath, rowLine, tileCounts } from '../lib/grouping'
+import { EVERYTHING_PATH, FAVOURITES_PATH, applyFilters, justAdded, mealPath, recentlyViewed, rowLine, tileCounts } from '../lib/grouping'
 import type { BackState } from '../lib/grouping'
 import { MEALS, listRecipes } from '../lib/recipes'
 import type { RecipeSummary } from '../lib/recipes'
@@ -60,7 +60,10 @@ export function RecipeList() {
   const favouriteIds = new Set(recipes ? recipes.filter((r) => favourites.get(r.id, r.favourite)).map((r) => r.id) : [])
   const counts = recipes ? tileCounts(recipes, favouriteIds) : null
   const results = recipes && searching ? applyFilters(recipes, {}, search) : null
-  const newest = recipes ? justAdded(recipes, 3) : []
+  const viewed = recipes ? recentlyViewed(recipes, 3) : []
+  const showViewed = viewed.length > 0
+  const recent = showViewed ? viewed : recipes ? justAdded(recipes, 3) : []
+  const recentId = showViewed ? 'recently-viewed' : 'recently-added'
 
   function cancelSearch() {
     setSearch('')
@@ -161,11 +164,11 @@ export function RecipeList() {
             </ul>
           </nav>
 
-          {newest.length > 0 && (
-            <section aria-labelledby="recently-added">
-              <SectionLabel id="recently-added" className="mb-1">Recently added</SectionLabel>
+          {recent.length > 0 && (
+            <section aria-labelledby={recentId}>
+              <SectionLabel id={recentId} className="mb-1">{showViewed ? 'Recently viewed' : 'Recently added'}</SectionLabel>
               <ul>
-                {newest.map((r) => (
+                {recent.map((r) => (
                   <RecipeListRow key={r.id} id={r.id} title={r.title} line={r.addedBy.trim()} backState={HOME_BACK} />
                 ))}
               </ul>

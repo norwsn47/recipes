@@ -60,6 +60,20 @@ export function justAdded(recipes: readonly RecipeSummary[], n = 3): RecipeSumma
     .map((x) => x.r)
 }
 
+/**
+ * Up to `n` recipes the signed-in user has viewed (non-null `viewedAt`), most recently viewed first. Ties keep the
+ * order of the input. Recipes never viewed are excluded, and so are ones whose `viewedAt` cannot be parsed as a date.
+ * Does not mutate the input.
+ */
+export function recentlyViewed(recipes: readonly RecipeSummary[], n = 3): RecipeSummary[] {
+  return recipes
+    .map((r, i) => ({ r, i, t: r.viewedAt === null ? NaN : Date.parse(r.viewedAt) }))
+    .filter((x) => !Number.isNaN(x.t))
+    .sort((a, b) => (a.t === b.t ? a.i - b.i : b.t - a.t))
+    .slice(0, Math.max(0, n))
+    .map((x) => x.r)
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // Pages and filters
 
