@@ -5,6 +5,9 @@ Last updated: 28 November 2026
 
 ---
 
+## 28 November 2026 - Share preview shows the title only
+- Decision (owner): `/r/:id` link previews drop the image and the "meals · food types · time · Family Recipes" description, and the query reads only the title. Chat apps now show the recipe name in bold and the web address. `public/og-image.png` and `npm run og-image` stay in place, unused, in case the image comes back.
+
 ## 28 November 2026 - Notes become rich text
 - Behaviour change (owner): recipe notes are edited in a simple WYSIWYG editor (Tiptap) with Bold, Bulleted list and Numbered list, and shown with that formatting. Nothing else is allowed (no italics, headings, links, images or pasted styles). Stored in the existing `notes` column as an HTML subset (p, strong, ul, ol, li, br; no attributes); old plain-text notes still display and edit unchanged.
 - Decision (owner): the 2,000-character limit counts visible text only; stored markup is capped separately at 8,000 characters. Migration 0008 rebuilds `recipes` and its child tables to relax the old 2,000 CHECK on the stored string (the brief had said no schema change; the CHECK made that impossible). It must be applied to remote D1 before merging.

@@ -1,6 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { TIME_LABELS } from '../src/lib/recipes'
-import { SHARE_TIME_LABELS, escapeHtml } from '../worker/share-preview'
+import { escapeHtml } from '../worker/share-preview'
 import { CSRF_HEADERS, baseEnv, call, resetDb, setupGoogleMock, signIn } from './helpers'
 
 beforeAll(setupGoogleMock)
@@ -27,7 +26,7 @@ const headerText = (res: Response) => [...res.headers].map(([k, v]) => `${k}: ${
 function expectShareHeaders(res: Response) {
   expect(res.headers.get('content-type')).toBe('text/html; charset=utf-8')
   expect(res.headers.get('content-security-policy')).toBe(
-    "default-src 'none'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
   )
   expect(res.headers.get('x-content-type-options')).toBe('nosniff')
   expect(res.headers.get('referrer-policy')).toBe('no-referrer')
@@ -39,7 +38,6 @@ function expectShareHeaders(res: Response) {
 function expectGeneric(body: string) {
   expect(body).toContain('<title>Family Recipes</title>')
   expect(body).toContain('<meta property="og:title" content="Family Recipes">')
-  expect(body).toContain('<meta property="og:description" content="Family Recipes">')
   expect(body).toContain('<meta property="og:url" content="http://example.com/">')
   expect(body).toContain('<meta http-equiv="refresh" content="0;url=/">')
 }
@@ -53,32 +51,18 @@ describe('GET /r/:id for a real recipe, signed out', () => {
     const body = await res.text()
     expect(body).toContain('<title>Pasta bake</title>')
     expect(body).toContain('<meta property="og:title" content="Pasta bake">')
-    expect(body).toContain('<meta property="og:description" content="Breakfast, Dinner · Chicken · &lt; 30 mins · Family Recipes">')
     expect(body).toContain(`<meta property="og:url" content="http://example.com/r/${ID}">`)
-    expect(body).toContain('<meta property="og:image" content="http://example.com/og-image.png">')
-    expect(body).toContain('<meta property="og:image:width" content="1200">')
-    expect(body).toContain('<meta property="og:image:height" content="630">')
     expect(body).toContain('<meta property="og:type" content="website">')
-    expect(body).toContain('<meta property="og:site_name" content="Family Recipes">')
-    expect(body).toContain('<meta name="twitter:card" content="summary_large_image">')
+    expect(body).toContain('<meta name="twitter:card" content="summary">')
     expect(body).toContain(`<meta http-equiv="refresh" content="0;url=/recipes/${ID}">`)
     expect(body).toContain(`<a href="/recipes/${ID}">`)
   })
 
-  it('lists meals then food types, in list order, and omits food types when there are none', async () => {
-    await seed('T', 'Around 1 hr', ['Dessert', 'Lunch'], ['Vegetarian', 'Beef'])
-    expect(await (await call(`/r/${ID}`)).text()).toContain('content="Lunch, Dessert · Beef, Vegetarian · 1 hr · Family Recipes"')
-    await resetDb()
-    await seed('T', 'Around 1 hr', ['Baking'], [])
-    expect(await (await call(`/r/${ID}`)).text()).toContain('content="Baking · 1 hr · Family Recipes"')
-  })
-
-  it('uses the short label for each time tag', async () => {
-    for (const [tag, label] of [['Around 1 hr', '1 hr'], ['Extensive prep', '1 hr +']]) {
-      await resetDb()
-      await seed('T', tag, ['Dinner'], ['Fish'])
-      expect(await (await call(`/r/${ID}`)).text()).toContain(`content="Dinner · Fish · ${label} · Family Recipes"`)
-    }
+  it('sends only the title: no image, no description, no site name, no meals, food types or time', async () => {
+    await seed('T', 'Around 1 hr', ['Baking'], ['Beef'])
+    const body = await (await call(`/r/${ID}`)).text()
+    expect(body).not.toMatch(/og:image|twitter:image|og:description|name="description"|twitter:description|og:site_name/)
+    for (const hidden of ['Baking', 'Beef', '1 hr', 'og-image.png']) expect(body).not.toContain(hidden)
   })
 
   it('builds absolute URLs from the request origin only', async () => {
@@ -86,7 +70,7 @@ describe('GET /r/:id for a real recipe, signed out', () => {
     const res = await call(`/r/${ID}`, { headers: { host: 'evil.test', 'x-forwarded-host': 'evil.test' } })
     const body = await res.text()
     expect(body).not.toContain('evil.test')
-    expect(body).toContain('http://example.com/og-image.png')
+    expect(body).toContain(`http://example.com/r/${ID}`)
   })
 
   it('has no script, inline style, handlers or external resources', async () => {
@@ -119,7 +103,7 @@ describe('escaping', () => {
 })
 
 describe('no leakage', () => {
-  it('shows nothing beyond title, time label, meals and food types', async () => {
+  it('shows nothing beyond the title', async () => {
     await seed()
     const res = await call(`/r/${ID}`)
     const all = `${await res.text()}\n${headerText(res)}`
@@ -221,11 +205,5 @@ describe('the rest of the app is still protected', () => {
   it('paths like /recipes/:id and /rx are not the share route', async () => {
     expect((await call(`/recipes/${ID}`)).status).toBe(404)
     expect((await call('/rx')).status).toBe(404)
-  })
-})
-
-describe('time labels', () => {
-  it('worker labels match src/lib/recipes.ts', () => {
-    expect(SHARE_TIME_LABELS).toEqual(TIME_LABELS)
   })
 })
