@@ -16,6 +16,9 @@
     "cf-typegen": "wrangler types ./worker/worker-configuration.d.ts"
   },
   "dependencies": {
+    "@tiptap/pm": "^3.35.1",
+    "@tiptap/react": "^3.35.1",
+    "@tiptap/starter-kit": "^3.35.1",
     "jose": "^6.2.12",
     "pdfjs-dist": "^6.4.299",
     "react": "^18.3.1",

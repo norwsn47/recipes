@@ -131,6 +131,17 @@ describe('no leakage', () => {
   })
 })
 
+describe('rich-text notes', () => {
+  it('never appear in the preview', async () => {
+    await seed()
+    await baseEnv.DB.prepare('UPDATE recipes SET notes = ? WHERE id = ?').bind('<p>SECRETNOTE <strong>BOLDSECRET</strong></p>', ID).run()
+    const res = await call(`/r/${ID}`)
+    const all = `${await res.text()}\n${headerText(res)}`
+    expect(all).not.toContain('SECRETNOTE')
+    expect(all).not.toContain('BOLDSECRET')
+  })
+})
+
 describe('unknown and malformed ids', () => {
   const bad = [
     '99999999-0000-4000-8000-000000000000', // well formed, not found

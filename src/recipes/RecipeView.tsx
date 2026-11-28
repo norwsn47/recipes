@@ -9,6 +9,7 @@ import type { RecipeDetail } from '../lib/recipes'
 import { BackLink } from './BackLink'
 import { FavouriteButton } from './FavouriteButton'
 import { Notice } from './Notice'
+import { NotesView } from './NotesView'
 import { favourites } from './favouritesStore'
 import { OverflowMenu } from './OverflowMenu'
 import { RecipeFiles } from './RecipeFiles'
@@ -121,8 +122,7 @@ export function RecipeView() {
       {r.notes && (
         <div className="space-y-1.5">
           <SectionLabel>Notes</SectionLabel>
-          {/* Rendered as a text node only, never as HTML; line breaks come from CSS. */}
-          <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{r.notes}</p>
+          <NotesView key={r.notes} notes={r.notes} />
         </div>
       )}
 

@@ -10,9 +10,15 @@ export type FoodType = (typeof FOOD_TYPES)[number]
 
 export const MAX_TITLE = 100
 export const MAX_LINK = 2000
+/** Limit on the visible text of the notes (markup does not count). */
 export const MAX_NOTES = 2000
-/** Sanity ceiling on the raw JSON body (generous: the fields above total about 4 KB). */
-export const MAX_BODY_BYTES = 16 * 1024
+/** Limit on the stored string of rich-text notes, markup included. Stops abuse such as thousands of tags. */
+export const MAX_NOTES_RAW = 8000
+/**
+ * Sanity ceiling on the raw JSON body. Worst case in bytes: title 100 + link 2,000 + rich notes 8,000
+ * characters, each written as up to 6 bytes (a \uXXXX escape) is about 61 KB, so 64 KB leaves headroom.
+ */
+export const MAX_BODY_BYTES = 64 * 1024
 
 export interface RecipeInput {
   title: string
@@ -69,6 +75,109 @@ function optionalText(
     return null
   }
   return text === '' ? null : text
+}
+
+const NOTES_RICH_ERROR = 'Notes can only use bold, bullet lists and numbered lists.'
+const NOTES_RAW_ERROR = 'Those notes have too much formatting. Remove some and try again.'
+const MAX_LIST_DEPTH = 6
+
+/** True when the (trimmed) notes are rich text: they start with exactly <p>, <ul> or <ol>. Else legacy plain text. */
+export const isHtmlNotes = (notes: string): boolean => /^<(?:p|ul|ol)>/.test(notes.trim())
+
+const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', nbsp: '\u00a0', quot: '"', '#39': "'" }
+const TAG_RE = /<(\/?)(p|strong|ul|ol|li|br)>/y
+const ENTITY_RE = /&(amp|lt|gt|nbsp|quot|#39);/y
+
+/** Whether a new tag may open inside the current parent ('' means top level). */
+function mayOpen(tag: string, parent: string): boolean {
+  switch (tag) {
+    case 'p': case 'ul': case 'ol': return parent === '' || parent === 'li'
+    case 'li': return parent === 'ul' || parent === 'ol'
+    case 'strong': return parent === 'p'
+    default: return parent === 'p' || parent === 'strong' // br
+  }
+}
+
+/**
+ * Strictly parses the rich-text subset. Returns the visible text (tags removed, entities decoded,
+ * nothing added between blocks, the same as ProseMirror's doc.textContent) or null if the markup
+ * is outside the subset. Text is only allowed inside p and strong.
+ */
+export function parseNotesHtml(html: string): string | null {
+  const stack: string[] = []
+  let text = ''
+  let lists = 0
+  let i = 0
+  while (i < html.length) {
+    const ch = html[i]
+    if (ch === '<') {
+      TAG_RE.lastIndex = i
+      const m = TAG_RE.exec(html)
+      if (!m) return null
+      const [whole, slash, tag] = m
+      if (tag === 'br') {
+        if (slash || !mayOpen('br', stack[stack.length - 1] ?? '')) return null
+      } else if (slash) {
+        if (stack.pop() !== tag) return null
+        if (tag === 'ul' || tag === 'ol') lists--
+      } else {
+        if (!mayOpen(tag, stack[stack.length - 1] ?? '')) return null
+        stack.push(tag)
+        if (tag === 'ul' || tag === 'ol') {
+          lists++
+          if (lists > MAX_LIST_DEPTH) return null
+        }
+      }
+      i += whole.length
+    } else {
+      const parent = stack[stack.length - 1]
+      if (parent !== 'p' && parent !== 'strong') return null
+      if (ch === '&') {
+        ENTITY_RE.lastIndex = i
+        const m = ENTITY_RE.exec(html)
+        if (!m) return null
+        text += ENTITIES[m[1]]
+        i += m[0].length
+      } else {
+        text += ch
+        i++
+      }
+    }
+  }
+  return stack.length === 0 ? text : null
+}
+
+/** The notes' visible text (trimmed plain text, or decoded rich text), or null for invalid rich text. */
+export function notesVisibleText(notes: string): string | null {
+  const t = notes.trim()
+  return isHtmlNotes(t) ? parseNotesHtml(t) : t
+}
+
+/** UTF-16 length of the visible text, or null for invalid rich text. */
+export const notesVisibleLength = (notes: string): number | null => notesVisibleText(notes)?.length ?? null
+
+/** Validates the notes field. Returns the value to store (exactly as submitted, trimmed) or null. */
+function validNotes(raw: unknown, errors: FieldErrors): string | null {
+  if (raw === undefined || raw === null) return null
+  if (typeof raw !== 'string') {
+    errors.notes = 'Notes must be text.'
+    return null
+  }
+  const notes = raw.trim()
+  if (isHtmlNotes(notes) && notes.length > MAX_NOTES_RAW) {
+    errors.notes = NOTES_RAW_ERROR
+    return null
+  }
+  const visible = notesVisibleText(notes)
+  if (visible === null) {
+    errors.notes = NOTES_RICH_ERROR
+    return null
+  }
+  if (visible.length > MAX_NOTES) {
+    errors.notes = `Notes must be ${MAX_NOTES.toLocaleString('en-GB')} characters or fewer.`
+    return null
+  }
+  return visible.trim() === '' ? null : notes
 }
 
 function validLink(link: string): boolean {
@@ -131,7 +240,7 @@ export function validateRecipeInput(
   if (link !== null && !errors.link && !validLink(link)) {
     errors.link = 'Link must be a web address starting with http:// or https://.'
   }
-  const notes = optionalText(b.notes, 'notes', 'Notes', MAX_NOTES, errors)
+  const notes = validNotes(b.notes, errors)
 
   // Only report the content rule when the link/notes themselves were not already invalid.
   if (!errors.link && !errors.notes && !meetsContentRule(link, notes, existingFileCount)) {

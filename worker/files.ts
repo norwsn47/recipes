@@ -166,8 +166,9 @@ export const fileInsert = (env: AppEnv, recipeId: string, userId: string, now: n
     MAX_FILES_PER_RECIPE, MAX_RECIPE_FILE_BYTES, maxUserStorageBytes(env), maxTotalStorageBytes(env),
   )
 
-export const isConstraintError = (err: unknown): boolean =>
-  err instanceof Error && /constraint/i.test(err.message)
+/** True only for the deliberate NOT NULL failure in fileInsert (a file cap broke mid-save). */
+export const isFileCapError = (err: unknown): boolean =>
+  err instanceof Error && /NOT NULL constraint failed: recipe_files\.size/i.test(err.message)
 
 // --- R2 ---------------------------------------------------------------------------------------
 

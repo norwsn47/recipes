@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Banner, Button, Field, Input, Textarea } from '@design-system/components'
+import { Banner, Button, Field, Input } from '@design-system/components'
 import {
   ApiError, FILE_ACCEPT, FOOD_TYPES, MAX_FILES, MAX_LINK, MAX_NOTES, MAX_RECIPE_FILE_BYTES, MAX_TITLE, MB, MEALS, TIME_TAGS,
   checkFile, createRecipe, fetchLinkTitle, formatBytes, getRecipe, isWebLink, timeLabel, updateRecipe, validateRecipe,
 } from '../lib/recipes'
+import { notesVisibleLength, hasVisibleNotes } from '../lib/notes'
 import { nameFromFileName, nameFromUrl } from '../lib/names'
 import type { FieldErrors, FoodType, Meal, RecipeFile, RecipeInput, TimeTag } from '../lib/recipes'
 import { BackLink } from './BackLink'
+import { NotesEditor } from './NotesEditor'
 import { FilterChip } from './FilterChip'
 
 const EMPTY: RecipeInput = { title: '', timeTag: '', meals: [], foodTypes: [], link: '', notes: '' }
@@ -141,7 +143,7 @@ export function RecipeForm() {
   const keptExisting = existingFiles.filter((f) => !removedIds.includes(f.id))
   const fileCount = keptExisting.length + newFiles.length
   const totalBytes = keptExisting.reduce((n, f) => n + f.size, 0) + newFiles.reduce((n, f) => n + f.size, 0)
-  const hasText = values.link.trim() !== '' || values.notes.trim() !== ''
+  const hasText = values.link.trim() !== '' || hasVisibleNotes(values.notes)
 
   /** Append the chosen files, skipping duplicates and anything the server would refuse, and say why. */
   function addFiles(chosen: File[]) {
@@ -480,8 +482,8 @@ export function RecipeForm() {
       {picker}
 
       {notesShown && (
-        <Field label="Notes" hint={`${values.notes.length.toLocaleString('en-GB')} of ${MAX_NOTES.toLocaleString('en-GB')} characters. Plain text only.`} error={errors.notes}>
-          <Textarea rows={6} autoFocus={focusTarget === 'notes'} value={values.notes} maxLength={MAX_NOTES} onChange={(e) => set('notes', e.target.value)} />
+        <Field label="Notes" hint={`${notesVisibleLength(values.notes).toLocaleString('en-GB')} of ${MAX_NOTES.toLocaleString('en-GB')} characters.`} error={errors.notes}>
+          <NotesEditor initial={values.notes} autoFocus={focusTarget === 'notes'} onChange={(html) => set('notes', html)} />
         </Field>
       )}
 

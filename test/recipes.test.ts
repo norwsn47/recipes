@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { CSRF_HEADERS, baseEnv, call, resetDb, setupGoogleMock, signIn } from './helpers'
 import type { AppEnv } from '../worker/http'
+import { MAX_NOTES, MAX_NOTES_RAW, isHtmlNotes, notesVisibleLength, notesVisibleText, validateRecipeInput } from '../worker/recipe-validation'
 
 beforeAll(setupGoogleMock)
 beforeEach(resetDb)
@@ -217,7 +218,7 @@ describe('validation', () => {
     expect((await create(cookie, '{nope')).status).toBe(400)
     expect((await create(cookie, '[1]')).status).toBe(400)
     expect((await create(cookie, 'null')).status).toBe(400)
-    expect((await create(cookie, JSON.stringify({ ...valid, notes: 'x'.repeat(20000) }))).status).toBe(413)
+    expect((await create(cookie, JSON.stringify({ ...valid, notes: 'x'.repeat(70000) }))).status).toBe(413)
     expect(await rowCount('recipes')).toBe(0)
   })
 })
@@ -412,5 +413,234 @@ describe('write rate limit', () => {
     expect((await create(b.cookie, valid, small)).status).toBe(201)
     await baseEnv.DB.prepare('UPDATE write_rate_limits SET window_start = window_start - 61000').run()
     expect((await send(a.cookie, 'DELETE', `/api/recipes/${r.id}`, undefined, small)).status).toBe(200)
+  })
+})
+
+describe('rich-text notes', () => {
+  const post = async (notes: unknown, over: Record<string, unknown> = {}) => {
+    const { cookie } = await signIn()
+    const res = await create(cookie, { ...valid, ...over, notes })
+    return { cookie, res, body: (await res.json()) as { recipe?: Recipe; error?: { fields: Record<string, string> } } }
+  }
+  const accepted = async (notes: string) => {
+    const { res, body } = await post(notes)
+    expect(res.status).toBe(201)
+    expect(body.recipe!.notes).toBe(notes)
+  }
+  const refused = async (notes: unknown, message?: string) => {
+    const { res, body } = await post(notes)
+    expect(res.status).toBe(400)
+    expect(body.error!.fields.notes).toBeTruthy()
+    if (message) expect(body.error!.fields.notes).toContain(message)
+    expect(await rowCount('recipes')).toBe(0)
+  }
+
+  it('legacy plain text is accepted unchanged', async () => {
+    for (const t of ['<3 this', '< 30 mins', 'a & b', 'line one\nline two\n\nline four', '<script>alert(1)</script>', 'x <p> y', '&amp; literal']) {
+      expect(isHtmlNotes(t)).toBe(false)
+      await accepted(t)
+      await resetDb()
+    }
+  })
+
+  it('classifies HTML by its first tag only', () => {
+    expect(isHtmlNotes('<p>a</p>')).toBe(true)
+    expect(isHtmlNotes('  <ul><li><p>a</p></li></ul>  ')).toBe(true)
+    expect(isHtmlNotes('<ol>')).toBe(true)
+    for (const t of ['<P>a</P>', '<p class="x">a</p>', '<pre>', '<strong>a</strong>', '<3', 'text <p>a</p>', '']) expect(isHtmlNotes(t)).toBe(false)
+  })
+
+  it('allowed HTML is stored byte for byte', async () => {
+    for (const html of [
+      '<p>Plain</p>',
+      '<p>Mix <strong>bold</strong> text</p><p>Second</p>',
+      '<p>one<br>two<br><strong>b<br>c</strong></p>',
+      '<ul><li><p>a</p></li><li><p>b <strong>c</strong></p></li></ul>',
+      '<ol><li><p>a</p><ul><li><p>nested</p></li></ul></li></ol>',
+      '<p>a &amp; b &lt; c &gt; d &nbsp; &quot;e&quot; &#39;f&#39;</p>',
+      '<ul><li><p>x</p><p>y</p></li></ul>',
+    ]) {
+      await accepted(html)
+      await resetDb()
+    }
+  })
+
+  it('trims surrounding whitespace but never rewrites the markup', async () => {
+    const { res, body } = await post('  \n<p>Hi  there</p>\n ')
+    expect(res.status).toBe(201)
+    expect(body.recipe!.notes).toBe('<p>Hi  there</p>')
+  })
+
+  it('rejects disallowed tags', async () => {
+    for (const t of [
+      '<p><script>alert(1)</script></p>', '<p><a>x</a></p>', '<p><em>x</em></p>', '<h1>x</h1>', '<p><img></p>',
+      '<div>x</div>', '<p><span>x</span></p>', '<p><b>x</b></p>', '<p>x</p><hr>', '<p>a<br/>b</p>', '<p>x</P>',
+    ]) await refused(`<p>ok</p>${t}`, 'Notes can only use bold, bullet lists and numbered lists.')
+  })
+
+  it('rejects attributes, comments and doctypes', async () => {
+    for (const t of [
+      '<p class="x">a</p>', '<p style="color:red">a</p>', '<p onclick="x()">a</p>', '<p><strong class="b">a</strong></p>',
+      '<ul id="a"><li><p>a</p></li></ul>', '<p>a</p><!-- c -->', '<p><!-- c -->a</p>', '<p>a</p><!DOCTYPE html>', '<p >a</p>',
+    ]) await refused(`<p>ok</p>${t}`)
+  })
+
+  it('rejects bad nesting and misplaced text', async () => {
+    for (const t of [
+      '<p><p>a</p></p>', '<p><ul><li><p>a</p></li></ul></p>', '<ul><p>a</p></ul>', '<ul><li>bare</li></ul>',
+      '<li><p>a</p></li>', '<p><li>a</li></p>', '<p><strong><strong>a</strong></strong></p>', '<p><strong><p>a</p></strong></p>',
+      '<ul>x<li><p>a</p></li></ul>', '<p>a</p>top level text', '<p>a</p>\n<p>b</p>', '<p>a</p><br>', '<ul><br></ul>',
+      '<p><strong>a</p></strong>', '<ul><li><p>a</p></li></ol>',
+    ]) await refused(`<p>ok</p>${t}`)
+  })
+
+  it('rejects unclosed tags', async () => {
+    for (const t of ['<p>a', '<p>a</p><p>b', '<ul><li><p>a</p></li>', '<p><strong>a</p>', '<p>a</p></p>', '<p>a</p><', '<p>a<']) await refused(t)
+  })
+
+  it('rejects a bare < or & in HTML mode', async () => {
+    for (const t of ['<p>a < b</p>', '<p>a & b</p>', '<p>a &copy; b</p>', '<p>a &amp b</p>', '<p>&#65;</p>', '<p>a &lt</p>', '<p>1 <2</p>']) await refused(t)
+  })
+
+  it('caps list nesting at depth 6', async () => {
+    const nest = (n: number) => '<ul><li>'.repeat(n).replace(/<li>/g, '<li><p>x</p>') + '</li></ul>'.repeat(n)
+    expect(nest(6)).toContain('<ul>')
+    await accepted(nest(6))
+    await resetDb()
+    await refused(nest(7))
+  })
+
+  it('counts visible text only', async () => {
+    expect(notesVisibleLength('plain  ')).toBe(5)
+    expect(notesVisibleLength('<p>a<strong>b</strong></p><p>c</p>')).toBe(3)
+    expect(notesVisibleLength('<ul><li><p>ab</p></li><li><p>cd</p></li></ul>')).toBe(4)
+    expect(notesVisibleLength('<p>a<br>b</p>')).toBe(2)
+    expect(notesVisibleLength('<p>&amp;&lt;&gt;&quot;&#39;&nbsp;</p>')).toBe(6)
+    expect(notesVisibleText('<p>&amp;</p>')).toBe('&')
+    expect(notesVisibleLength('<p>bad & markup</p>')).toBeNull()
+  })
+
+  // Pure validator cases; the API cases further down go through the database (CHECK <= 8000, migration 0008).
+  const validate = (notes: string) => validateRecipeInput({ ...valid, notes })
+
+  it('passes at 2,000 visible characters with markup and fails at 2,001', () => {
+    const wrap = (n: number) => `<p>${'a'.repeat(n - 10)}<strong>${'b'.repeat(10)}</strong></p>`
+    expect(wrap(MAX_NOTES).length).toBeGreaterThan(MAX_NOTES)
+    expect(validate(wrap(MAX_NOTES))).toMatchObject({ ok: true, value: { notes: wrap(MAX_NOTES) } })
+    const over = validate(wrap(MAX_NOTES + 1))
+    expect(over).toMatchObject({ ok: false, errors: { notes: 'Notes must be 2,000 characters or fewer.' } })
+  })
+
+  it('decodes entities when counting', () => {
+    // Five raw characters per visible one, so use a mix to stay under the raw cap.
+    const mix = (amps: number) => `<p>${'&amp;'.repeat(amps)}${'a'.repeat(MAX_NOTES - 1000)}</p>`
+    expect(notesVisibleLength(mix(1000))).toBe(MAX_NOTES)
+    expect(validate(mix(1000)).ok).toBe(true)
+    expect(validate(mix(1001)).ok).toBe(false)
+  })
+
+  it('applies the raw cap before tokenising', async () => {
+    const alternating = `<p>${'<strong>a</strong>b'.repeat(1000)}</p>` // 2,000 visible, far over the raw cap
+    expect(notesVisibleLength(alternating)).toBe(2000)
+    expect(alternating.length).toBeGreaterThan(MAX_NOTES_RAW)
+    await refused(alternating, 'too much formatting')
+    // Invalid markup over the cap also gets the cap message, not a parse error.
+    await refused(`<p>${'<x>'.repeat(MAX_NOTES_RAW)}</p>`, 'too much formatting')
+  })
+
+  it('treats empty editor variants as no notes, so the content rule applies', async () => {
+    for (const empty of [
+      '<p></p>', '<p>  </p>', '<p>&nbsp;</p>', '<p></p><p></p>', '<ul><li><p></p></li></ul>', '<p><br></p>', '<ol><li><p>&nbsp;</p></li></ol>',
+    ]) {
+      const { res, body } = await post(empty)
+      expect(res.status).toBe(400)
+      expect(body.error!.fields.content).toBeTruthy()
+      expect(body.error!.fields.notes).toBeUndefined()
+    }
+    const { res, body } = await post('<p></p>', { link: 'https://example.com' })
+    expect(res.status).toBe(201)
+    expect(body.recipe!.notes).toBeNull()
+  })
+
+  it('round-trips through create, detail, list and update', async () => {
+    const { cookie } = await signIn()
+    const html = '<p>Hello <strong>there</strong></p><ul><li><p>one</p></li></ul>'
+    const r = await makeRecipe(cookie, { notes: html })
+    const got = (await (await send(cookie, 'GET', `/api/recipes/${r.id}`)).json()) as { recipe: Recipe }
+    expect(got.recipe.notes).toBe(html)
+    const html2 = '<ol><li><p>step</p></li></ol>'
+    const put = await send(cookie, 'PUT', `/api/recipes/${r.id}`, { ...valid, notes: html2 })
+    expect(put.status).toBe(200)
+    const again = (await (await send(cookie, 'GET', `/api/recipes/${r.id}`)).json()) as { recipe: Recipe }
+    expect(again.recipe.notes).toBe(html2)
+    const bad = await send(cookie, 'PUT', `/api/recipes/${r.id}`, { ...valid, notes: '<p>a</p><p onclick="x">a</p>' })
+    expect(bad.status).toBe(400)
+    const after = (await (await send(cookie, 'GET', `/api/recipes/${r.id}`)).json()) as { recipe: Recipe }
+    expect(after.recipe.notes).toBe(html2)
+  })
+
+  it('search matches titles only, so markup in notes never matches', async () => {
+    const { cookie } = await signIn()
+    await makeRecipe(cookie, { title: 'Soup', notes: '<p><strong>bold</strong> text</p>' })
+    expect(await list(cookie, '?q=strong')).toHaveLength(0)
+    expect(await list(cookie, '?q=bold')).toHaveLength(0)
+    expect(await list(cookie, '?q=soup')).toHaveLength(1)
+  })
+
+  const richOf = (visible: number) => `<p>${'a'.repeat(visible - 10)}<strong>${'b'.repeat(10)}</strong></p>`
+
+  it('API stores and round-trips rich notes over 2,000 raw characters but under 2,000 visible', async () => {
+    const { cookie } = await signIn()
+    const html = `<p>${'<strong>a</strong>b'.repeat(300)}</p>` // 600 visible, over 2,000 raw
+    expect(html.length).toBeGreaterThan(2000)
+    expect(html.length).toBeLessThanOrEqual(MAX_NOTES_RAW)
+    const r = await makeRecipe(cookie, { notes: html })
+    expect(r.notes).toBe(html)
+    const got = (await (await send(cookie, 'GET', `/api/recipes/${r.id}`)).json()) as { recipe: Recipe }
+    expect(got.recipe.notes).toBe(html)
+    const html2 = `<p>${'<strong>c</strong>d'.repeat(400)}</p>`
+    expect((await send(cookie, 'PUT', `/api/recipes/${r.id}`, { ...valid, notes: html2 })).status).toBe(200)
+    const again = (await (await send(cookie, 'GET', `/api/recipes/${r.id}`)).json()) as { recipe: Recipe }
+    expect(again.recipe.notes).toBe(html2)
+  })
+
+  it('API accepts 2,000 visible characters of rich notes and refuses 2,001', async () => {
+    const { cookie } = await signIn()
+    const ok = richOf(MAX_NOTES)
+    expect(ok.length).toBeGreaterThan(MAX_NOTES)
+    const res = await create(cookie, { ...valid, notes: ok })
+    expect(res.status).toBe(201)
+    expect(((await res.json()) as { recipe: Recipe }).recipe.notes).toBe(ok)
+    const over = await create(cookie, { ...valid, notes: richOf(MAX_NOTES + 1) })
+    expect(over.status).toBe(400)
+    expect(((await over.json()) as { error: { fields: Record<string, string> } }).error.fields.notes).toBe('Notes must be 2,000 characters or fewer.')
+    expect(await rowCount('recipes')).toBe(1)
+  })
+
+  it('API stores rich notes at exactly 8,000 raw characters and refuses 8,001 with 400', async () => {
+    const { cookie } = await signIn()
+    // Mostly empty tags, so the visible text stays small while the raw length hits the cap exactly.
+    const tags = (raw: number) => `<p>${'<strong></strong>'.repeat(Math.floor((raw - 7) / 17))}${'a'.repeat((raw - 7) % 17)}</p>`
+    expect(tags(MAX_NOTES_RAW)).toHaveLength(MAX_NOTES_RAW)
+    const res = await create(cookie, { ...valid, notes: tags(MAX_NOTES_RAW) })
+    expect(res.status).toBe(201)
+    const over = await create(cookie, { ...valid, notes: tags(MAX_NOTES_RAW + 1) })
+    expect(over.status).toBe(400)
+    expect(((await over.json()) as { error: { fields: Record<string, string> } }).error.fields.notes).toContain('too much formatting')
+    expect(await rowCount('recipes')).toBe(1)
+  })
+
+  it('a database constraint failure that is not about files is not reported as "files changed"', async () => {
+    const { cookie } = await signIn()
+    const failing = new Proxy(baseEnv.DB, {
+      get(target, prop) {
+        if (prop === 'batch') return () => Promise.reject(new Error('D1_ERROR: CHECK constraint failed: length(notes) <= 8000: SQLITE_CONSTRAINT'))
+        const v = Reflect.get(target, prop) as unknown
+        return typeof v === 'function' ? (v as (...a: unknown[]) => unknown).bind(target) : v
+      },
+    })
+    const res = await create(cookie, valid, withEnv({ DB: failing }))
+    expect(res.status).toBe(500)
+    expect(await res.text()).not.toContain('Your files changed')
   })
 })
