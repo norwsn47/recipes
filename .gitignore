@@ -10,3 +10,6 @@ dist/
 
 # One-off recipe import (personal PDFs, never committed)
 import/
+
+# Local database backups (never commit)
+backups/

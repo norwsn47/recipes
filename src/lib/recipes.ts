@@ -1,6 +1,9 @@
 // Recipe types, the fixed lists, client-side validation (mirrors worker/recipe-validation.ts) and
 // the API calls for recipes. All requests go through apiFetch so CSRF headers and 401 handling apply.
 import { apiFetch } from './api'
+import { MAX_NOTES, MAX_NOTES_RAW, hasVisibleNotes, isHtmlNotes, normaliseEditorNotes, notesVisibleLength } from './notes'
+
+export { MAX_NOTES, MAX_NOTES_RAW }
 
 export const TIME_TAGS = ['Less than 30 mins', 'Around 1 hr', 'Extensive prep'] as const
 export type TimeTag = (typeof TIME_TAGS)[number]
@@ -20,7 +23,6 @@ export type FoodType = (typeof FOOD_TYPES)[number]
 
 export const MAX_TITLE = 100
 export const MAX_LINK = 2000
-export const MAX_NOTES = 2000
 
 // File limits, mirroring the server (which also checks the real content and is authoritative).
 export const MB = 1_048_576
@@ -176,7 +178,7 @@ export async function getRecipe(id: string, signal?: AbortSignal): Promise<Recip
 }
 
 function body(input: RecipeInput) {
-  return { title: input.title.trim(), timeTag: input.timeTag, meals: input.meals, foodTypes: input.foodTypes, link: input.link.trim(), notes: input.notes.trim() }
+  return { title: input.title.trim(), timeTag: input.timeTag, meals: input.meals, foodTypes: input.foodTypes, link: input.link.trim(), notes: normaliseEditorNotes(input.notes) }
 }
 
 /** JSON when there are no new files; multipart (`recipe` text field plus one `files` part each) when there are. */
@@ -218,8 +220,10 @@ export function validateRecipe(input: RecipeInput, fileCount = 0): FieldErrors {
   if (input.meals.length === 0) errors.meals = 'Choose at least one meal.'
   if (link.length > MAX_LINK) errors.link = `Keep the link to ${MAX_LINK.toLocaleString('en-GB')} characters or fewer.`
   else if (link && !isWebLink(link)) errors.link = 'The link needs to be a web address starting with http:// or https://.'
-  if (notes.length > MAX_NOTES) errors.notes = `Keep the notes to ${MAX_NOTES.toLocaleString('en-GB')} characters or fewer.`
-  if (!errors.link && !errors.notes && !link && !notes && fileCount === 0) {
+  // Rich-text notes: the limit counts visible text only, plus a cap on the stored markup. Legacy plain text is counted as it is.
+  if (isHtmlNotes(notes) && notes.length > MAX_NOTES_RAW) errors.notes = 'Those notes have too much formatting. Remove some and try again.'
+  else if (notesVisibleLength(notes) > MAX_NOTES) errors.notes = `Keep the notes to ${MAX_NOTES.toLocaleString('en-GB')} characters or fewer.`
+  if (!errors.link && !errors.notes && !link && !hasVisibleNotes(notes) && fileCount === 0) {
     errors.content = 'Add a link, some notes or a photo or PDF so there is something to cook from.'
   }
   return errors

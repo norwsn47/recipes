@@ -1,5 +1,5 @@
 // Recipe CRUD, list, filter and search. Every handler runs after CSRF and session checks.
-import { checkFiles, deleteObjects, fileInsert, isConstraintError, recipeTooLarge, storeFiles } from './files'
+import { checkFiles, deleteObjects, fileInsert, isFileCapError, recipeTooLarge, storeFiles } from './files'
 import type { FileRow, IncomingFile } from './files'
 import { errorResponse, json } from './http'
 import type { AppEnv } from './http'
@@ -306,7 +306,7 @@ export async function createRecipe(request: Request, env: AppEnv, user: SessionU
     ])
   } catch (err) {
     await deleteObjects(env, keys, 'create failed')
-    if (!isConstraintError(err)) throw err
+    if (!isFileCapError(err)) throw err
     const again = await checkFiles(env, user.id, id, parsed.files, { count: 0, bytes: 0 }, 0)
     return again.ok ? FILES_CHANGED() : again.response
   }
@@ -392,7 +392,7 @@ export async function updateRecipe(
     ])
   } catch (err) {
     await deleteObjects(env, newKeys, 'edit failed')
-    if (!isConstraintError(err)) throw err
+    if (!isFileCapError(err)) throw err
     const again = await checkFiles(env, user.id, id, parsed.files, remaining, removedBytes)
     return again.ok ? FILES_CHANGED() : again.response
   }

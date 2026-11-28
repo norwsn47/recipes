@@ -1,5 +1,5 @@
 # CLAUDE.md
-Last updated: 11 November 2026
+Last updated: 28 November 2026
 > Ground rules for this project. Read this at the start of every session.
 > Whenever you edit this file, update the "Last updated:" date above to today's date before saving.
 
@@ -225,6 +225,7 @@ Layout: Mobile-first
 - The "by Outbuild" mark is in the settings pop-up, not on the home screen: a deliberate departure from `design-system/DESIGN.md`.
 - Fonts load from Google Fonts (accepted: visitors' IP addresses go to Google).
 - Deploy: apply new D1 migrations to remote before merging to main. The Google client ID is set both in `wrangler.jsonc` vars and as the Cloudflare build variable `VITE_GOOGLE_CLIENT_ID`. https://recipes.outbuild.uk must stay an authorised origin on the Google client.
+- Notes are rich text: bold, bulleted and numbered lists only, stored as an HTML subset (p, strong, ul, ol, li, br; no attributes) in `notes`, or legacy plain text (anything whose trimmed value does not start with `<p>`, `<ul>` or `<ol>`). Plain text is only ever shown as text; display goes through a read-only Tiptap editor with the same restricted schema, never `dangerouslySetInnerHTML`. The 2,000-character limit counts visible text; the stored string is capped at 8,000 (migration 0008, which must be applied to remote D1 before merging). Tiptap runs with `injectCSS: false` and our own `.notes-doc` CSS, because the CSP has no `'unsafe-inline'` for styles. Notes never appear in `/r/:id`.
 - Local testing is Chrome or Firefox; Safari rejects the Secure cookie on http://localhost.
 
 <!-- VERSION CONTROL MODE - set this during setup -->

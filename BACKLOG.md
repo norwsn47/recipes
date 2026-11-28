@@ -1,16 +1,28 @@
 # BACKLOG.md
-Last updated: 31 October 2026
+Last updated: 28 November 2026
 
 > A to-do list, so nothing gets forgotten. Open items only.
 > - **Removing:** whoever finishes an item deletes its line in the same commit as the change (the project-manager for large changes, the main session for small ones). Add a `CHANGELOG.md` note only if it was a decision or a reversal.
 > - **Adding:** only something you would actually do - a real bug, a feature idea you asked for, or a manual step you owe. You ask; the project-manager adds genuine follow-ups from a large change; Critical/High review and audit findings are added. Lower findings stay in the chat report until you triage them. Non-blocking review notes are never logged.
 > - **Accepted or won't-fix:** never a to-do. One line in "Known and accepted" below, or a code comment where the issue sits in one place. Reviews and audits read that section and do not re-raise it.
 > - **Entries are one to three lines:** what needs doing, not the history. Nothing here is actioned without explicit instruction.
-> - **IDs are stable and never reused**, even after an item is deleted, so gaps are expected. Next free ID: **#33**.
+> - **IDs are stable and never reused**, even after an item is deleted, so gaps are expected. Next free ID: **#37**.
 
 ---
 
 ## To do
+
+### 35. Apply migration 0008 to remote D1 before merging rich-text notes
+Manual step for you. It rebuilds `recipes` and its 5 child tables, so first take a backup (`npx wrangler d1 export family-recipes-db --remote --output=<file outside git>`), apply at a quiet moment, then compare row counts and check no `tmp_*` tables remain. Never apply with --remote without asking.
+
+### 33. Lazy-load the notes editor
+Tiptap added about 131 kB gzip to the entry chunk (80 to 211 kB). Load NotesEditor and NotesView with React.lazy and Suspense so sign-in and list pages stay light.
+
+### 34. Declare @tiptap/extension-list
+src/lib/notesExtensions.ts imports it, but it is only installed through StarterKit. Add it to package.json at the same version (needs your OK), or import from starter-kit if it re-exports them.
+
+### 36. Clearer message for over-deep pasted lists
+A pasted list nested more than 6 levels is refused by the server with the generic formatting message; flatten on paste or add a client check (NotesEditor.tsx).
 
 ### 32. Design-system candidates from the home tiles
 Dropdown chip, tile, plain list row and the left-aligned "‹ back" header are built in the app (ListPage.tsx, RecipeList.tsx, RecipeListRow.tsx, AppShell.tsx); consider promoting them.

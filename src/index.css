@@ -1,1 +1,34 @@
 @import "../design-system/tokens.css";
+
+/* Rich-text notes (Tiptap). Unlayered on purpose so these win over Tailwind preflight, which strips list markers.
+   Replaces Tiptap's own style tag, which our CSP blocks. */
+.notes-doc {
+  position: relative;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  font-variant-ligatures: none;
+  font-variant-numeric: lining-nums;
+  outline: none;
+}
+.notes-doc p { margin: 0; min-height: 1lh; }
+.notes-doc p + p,
+.notes-doc p + ul,
+.notes-doc p + ol,
+.notes-doc ul + p,
+.notes-doc ol + p { margin-top: calc(var(--spacing) * 2); }
+.notes-doc ul,
+.notes-doc ol { margin: 0; padding-left: calc(var(--spacing) * 6); white-space: normal; }
+.notes-doc ul { list-style: disc; }
+.notes-doc ol { list-style: decimal; }
+.notes-doc ul ul { list-style: circle; }
+.notes-doc li { margin: 0; }
+.notes-doc li > p { margin: 0; }
+.notes-doc li > ul,
+.notes-doc li > ol { margin-top: var(--spacing); }
+.notes-doc strong { font-weight: 700; }
+.notes-doc br.ProseMirror-trailingBreak { white-space: pre; }
+.notes-doc.ProseMirror-focused { outline: none; }
+.notes-doc .ProseMirror-selectednode { outline: 2px solid var(--ring); }
+.notes-doc .ProseMirror-hideselection *::selection { background: transparent; }
+.notes-doc .ProseMirror-hideselection { caret-color: transparent; }
